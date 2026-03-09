@@ -1,0 +1,9 @@
+id,region,port,baseFreight,thc,bunker,pss,transit,trend
+1,US,"Los Angeles, CA (USLAX)",3200,350,400,0,22-25 days,down
+2,US,"Houston, TX (USHOU)",3800,380,450,150,30-35 days,up
+3,US,"New York, NY (USNYC)",4100,400,450,150,35-40 days,up
+4,EU,"Rotterdam, NL (NLRTM)",2800,250,300,0,28-32 days,down
+5,EU,"Hamburg, DE (DEHAM)",2900,260,300,50,30-34 days,stable
+6,EU,"Antwerp, BE (BEANR)",2850,250,310,0,29-33 days,stable
+7,Arab,"Jebel Ali, UAE (AEJEA)",1800,200,150,0,15-18 days,down
+8,Arab,"Jeddah, SA (SAJED)",1950,210,160,100,18-21 days,up
