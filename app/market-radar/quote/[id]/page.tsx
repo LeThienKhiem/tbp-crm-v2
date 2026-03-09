@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useMemo, useState } from "react";
-import { ArrowLeft, Building2, MapPin, Ship, Truck } from "lucide-react";
+import { useParams, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Building2, MapPin, RefreshCw, Ship, Truck } from "lucide-react";
 
 type Rate = {
   id: number;
@@ -57,8 +57,20 @@ const formatDate = (date: Date) =>
 
 export default function QuoteDetailPage() {
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const rateId = Number(params?.id);
-  const selectedRate = useMemo(() => rates.find((r) => r.id === rateId), [rateId]);
+  const liveBaseFreight = Number(searchParams.get("liveBaseFreight") ?? "");
+  const selectedRate = useMemo(() => {
+    const rate = rates.find((r) => r.id === rateId);
+    if (!rate) return undefined;
+    if (Number.isFinite(liveBaseFreight) && liveBaseFreight > 0) {
+      return {
+        ...rate,
+        baseFreight: liveBaseFreight,
+      };
+    }
+    return rate;
+  }, [rateId, liveBaseFreight]);
 
   const [originTruckingVnd, setOriginTruckingVnd] = useState(8_500_000);
   const [destinationZipCode, setDestinationZipCode] = useState("");
@@ -67,6 +79,15 @@ export default function QuoteDetailPage() {
   const [unitExwPrice, setUnitExwPrice] = useState(25);
   const [dutyRate, setDutyRate] = useState(2.5);
   const [targetMargin, setTargetMargin] = useState(20);
+  const [isFetchingFreight, setIsFetchingFreight] = useState(false);
+  const [oceanFreightCost, setOceanFreightCost] = useState(
+    selectedRate
+      ? selectedRate.baseFreight + selectedRate.thc + selectedRate.bunker + selectedRate.pss
+      : 0,
+  );
+  const [isLiveFreight, setIsLiveFreight] = useState(false);
+  const [liveTransitTime, setLiveTransitTime] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const exchangeRate = 25000;
 
@@ -87,9 +108,16 @@ export default function QuoteDetailPage() {
     );
   }
 
+  useEffect(() => {
+    const staticOceanCost =
+      selectedRate.baseFreight + selectedRate.thc + selectedRate.bunker + selectedRate.pss;
+    setOceanFreightCost(staticOceanCost);
+    setIsLiveFreight(false);
+    setLiveTransitTime(null);
+  }, [selectedRate]);
+
   const phaseAUsd = originTruckingVnd / exchangeRate;
-  const phaseBUsd =
-    selectedRate.baseFreight + selectedRate.thc + selectedRate.bunker + selectedRate.pss;
+  const phaseBUsd = oceanFreightCost;
   const phaseCUsd = selectedRate.inlandTrucking;
 
   const totalExwCost = quantity * unitExwPrice;
@@ -98,6 +126,65 @@ export default function QuoteDetailPage() {
   const totalSellingPrice =
     targetMargin < 100 ? totalLandedCost / (1 - targetMargin / 100) : 0;
   const sellingPricePerUnit = quantity > 0 ? totalSellingPrice / quantity : 0;
+
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(null), 2800);
+  };
+
+  const getDestinationPortCode = (port: string) => {
+    const match = port.match(/\(([^)]+)\)/);
+    return match?.[1] ?? "USLAX";
+  };
+
+  const fetchLiveOceanFreight = async () => {
+    setIsFetchingFreight(true);
+    try {
+      const response = await fetch("/api/freightos", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          originPort: "VNHPH",
+          destinationPort: getDestinationPortCode(selectedRate.port),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch live freight.");
+      }
+
+      const data = (await response.json()) as {
+        estimatedPrice?: number;
+        transitTime?: string;
+        source?: string;
+      };
+
+      const livePrice = Number(data.estimatedPrice ?? 0);
+      if (!livePrice) {
+        throw new Error("No valid estimate returned.");
+      }
+
+      setOceanFreightCost(livePrice);
+      setIsLiveFreight(true);
+      setLiveTransitTime(data.transitTime ?? null);
+      showToast(
+        data.source === "fallback"
+          ? "Freightos unavailable, using fallback estimate."
+          : "Live Freightos estimate updated.",
+      );
+    } catch {
+      const staticOceanCost =
+        selectedRate.baseFreight + selectedRate.thc + selectedRate.bunker + selectedRate.pss;
+      setOceanFreightCost(staticOceanCost);
+      setIsLiveFreight(false);
+      setLiveTransitTime(null);
+      showToast("Live estimate failed. Reverted to static CSV data.");
+    } finally {
+      setIsFetchingFreight(false);
+    }
+  };
 
   const handleGenerateQuote = () => {
     const now = new Date();
@@ -272,20 +359,42 @@ export default function QuoteDetailPage() {
                   Phase B: Ocean Freight
                 </h2>
               </div>
+              <button
+                type="button"
+                onClick={fetchLiveOceanFreight}
+                disabled={isFetchingFreight}
+                className="mb-3 inline-flex min-h-[40px] items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RefreshCw className={`h-4 w-4 ${isFetchingFreight ? "animate-spin" : ""}`} />
+                {isFetchingFreight ? "Fetching..." : "Fetch Live Freightos Estimate"}
+              </button>
               <p className="text-sm text-slate-600">
                 Ocean transit from VN to <span className="font-medium text-slate-800">{selectedRate.port}</span>.
                 {" "}Carrier: <span className="font-medium text-slate-800">{selectedRate.carrier}</span>.
               </p>
-              <p className="mt-1 text-sm text-slate-600">Estimated Transit: {selectedRate.transit}</p>
-              <div className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
-                <p>Base: {formatCurrency(selectedRate.baseFreight)}</p>
-                <p>THC: {formatCurrency(selectedRate.thc)}</p>
-                <p>Bunker: {formatCurrency(selectedRate.bunker)}</p>
-                <p>PSS: {formatCurrency(selectedRate.pss)}</p>
-              </div>
-              <p className="mt-2 text-sm font-semibold text-slate-800">
-                Subtotal B: {formatCurrency(phaseBUsd)}
+              <p className="mt-1 text-sm text-slate-600">
+                Estimated Transit: {liveTransitTime ?? selectedRate.transit}
               </p>
+              {isLiveFreight ? (
+                <p className="mt-3 text-sm text-slate-600">All-in Ocean Freight (API Estimate)</p>
+              ) : (
+                <div className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+                  <p>Base: {formatCurrency(selectedRate.baseFreight)}</p>
+                  <p>THC: {formatCurrency(selectedRate.thc)}</p>
+                  <p>Bunker: {formatCurrency(selectedRate.bunker)}</p>
+                  <p>PSS: {formatCurrency(selectedRate.pss)}</p>
+                </div>
+              )}
+              <div className="mt-2 flex items-center gap-2">
+                <p className="text-sm font-semibold text-slate-800">
+                  Subtotal B: {formatCurrency(phaseBUsd)}
+                </p>
+                {isLiveFreight ? (
+                  <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                    Live API Data
+                  </span>
+                ) : null}
+              </div>
             </article>
 
             <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
@@ -437,6 +546,12 @@ export default function QuoteDetailPage() {
           </aside>
         </main>
       </div>
+
+      {toastMessage ? (
+        <div className="fixed bottom-4 right-4 z-50 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-lg">
+          {toastMessage}
+        </div>
+      ) : null}
     </div>
   );
 }
