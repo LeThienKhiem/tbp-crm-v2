@@ -90,21 +90,28 @@ export default function Home() {
 
             if (isActive && module.href) {
               return (
-                <Link
+                <div
                   key={module.id}
-                  href={module.href}
                   className="group rounded-xl border border-blue-300 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-400 hover:shadow-md"
                 >
-                  <div className="flex items-start justify-between">
-                    <span className="text-xs font-semibold text-blue-600">Module {module.id}</span>
-                    <Icon className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <h2 className="mt-3 text-lg font-semibold text-slate-900">{module.title}</h2>
-                  <p className="mt-2 text-sm text-slate-600">{module.description}</p>
-                  <span className="mt-4 inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-200">
-                    Active
-                  </span>
-                </Link>
+                  <Link href={module.href} className="block">
+                    <div className="flex items-start justify-between">
+                      <span className="text-xs font-semibold text-blue-600">Module {module.id}</span>
+                      <Icon className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <h2 className="mt-3 text-lg font-semibold text-slate-900">{module.title}</h2>
+                    <p className="mt-2 text-sm text-slate-600">{module.description}</p>
+                    <span className="mt-4 inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-200">
+                      Active
+                    </span>
+                  </Link>
+                  <Link
+                    href="/shipping-crm"
+                    className="mt-1 block text-xs text-blue-600 underline"
+                  >
+                    View CRM Dashboard →
+                  </Link>
+                </div>
               );
             }
 

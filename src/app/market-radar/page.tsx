@@ -462,6 +462,9 @@ export default function MarketRadarPage() {
                 })}
               </tbody>
             </table>
+            <p className="mt-2 px-1 text-xs text-slate-400">
+              * Rates shown are estimates. Click &quot;Create Quote&quot; for a live breakdown.
+            </p>
           </div>
         </section>
       </div>

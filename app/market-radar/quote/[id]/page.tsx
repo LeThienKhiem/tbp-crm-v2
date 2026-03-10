@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Building2, MapPin, RefreshCw, Ship, Truck } from "lucide-react";
+import { ZipDeliveryInput, type RateResult } from "@/components/shipping-crm/ZipDeliveryInput";
 
 type Rate = {
   id: number;
@@ -55,6 +56,39 @@ const formatDate = (date: Date) =>
     day: "2-digit",
   });
 
+function formatVNDInput(value: number | string): string {
+  const num = String(value).replace(/\D/g, "");
+  if (!num) return "";
+  return Number(num).toLocaleString("en-US");
+}
+
+function parseVNDInput(formatted: string): number {
+  return parseInt(formatted.replace(/,/g, ""), 10) || 0;
+}
+
+// Derive breakdown from a single total estimate (Freightos returns estimatedPrice only)
+function deriveBreakdown(totalEstimate: number) {
+  const THC_ORIGIN = 95;
+  const ISPS = 35;
+  const BL_FEE = 65;
+  const fixedFees = THC_ORIGIN + ISPS + BL_FEE;
+  const variable = totalEstimate - fixedFees;
+  const base = Math.round(variable * 0.72);
+  const bunker = Math.round(variable * 0.15);
+  const caf = Math.round(variable * 0.05);
+  const pss = Math.max(0, variable - base - bunker - caf);
+  return {
+    base,
+    bunker,
+    caf,
+    pss,
+    thc: THC_ORIGIN,
+    isps: ISPS,
+    blFee: BL_FEE,
+    total: base + bunker + caf + pss + THC_ORIGIN + ISPS + BL_FEE,
+  };
+}
+
 export default function QuoteDetailPage() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
@@ -80,16 +114,44 @@ export default function QuoteDetailPage() {
   const [dutyRate, setDutyRate] = useState(2.5);
   const [targetMargin, setTargetMargin] = useState(20);
   const [isFetchingFreight, setIsFetchingFreight] = useState(false);
+  const [breakdown, setBreakdown] = useState(() => {
+    if (!selectedRate) return { base: 0, bunker: 0, caf: 0, pss: 0, thc: 0, isps: 35, blFee: 65, total: 0 };
+    const base = Number.isFinite(liveBaseFreight) && liveBaseFreight > 0 ? liveBaseFreight : selectedRate.baseFreight;
+    const total = base + selectedRate.thc + selectedRate.bunker + selectedRate.pss + 35 + 65;
+    return {
+      base,
+      bunker: selectedRate.bunker,
+      caf: 0,
+      pss: selectedRate.pss,
+      thc: selectedRate.thc,
+      isps: 35,
+      blFee: 65,
+      total,
+    };
+  });
   const [oceanFreightCost, setOceanFreightCost] = useState(
     selectedRate
-      ? selectedRate.baseFreight + selectedRate.thc + selectedRate.bunker + selectedRate.pss
+      ? selectedRate.baseFreight + selectedRate.thc + selectedRate.bunker + selectedRate.pss + 35 + 65
       : 0,
   );
   const [isLiveFreight, setIsLiveFreight] = useState(false);
+  const [liveCarrier, setLiveCarrier] = useState<string | null>(null);
   const [liveTransitTime, setLiveTransitTime] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const exchangeRate = 25000;
+  const [customerName, setCustomerName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [poNumber, setPoNumber] = useState("");
+  const [deliveryState, setDeliveryState] = useState("CA");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [savedQuoteId, setSavedQuoteId] = useState<string | null>(null);
+
+  const [leg3Rate, setLeg3Rate] = useState<RateResult | null>(null);
+  const [leg3Chosen, setLeg3Chosen] = useState<"low" | "mid" | "high">("mid");
+  const [leg3EstimateUsd, setLeg3EstimateUsd] = useState(0);
+
+  const exchangeRate = 26055;
 
   if (!selectedRate) {
     return (
@@ -109,16 +171,35 @@ export default function QuoteDetailPage() {
   }
 
   useEffect(() => {
+    if (!selectedRate) return;
     const staticOceanCost =
       selectedRate.baseFreight + selectedRate.thc + selectedRate.bunker + selectedRate.pss;
-    setOceanFreightCost(staticOceanCost);
+    const totalWithFees = staticOceanCost + 35 + 65;
+    setBreakdown({
+      base: selectedRate.baseFreight,
+      bunker: selectedRate.bunker,
+      caf: 0,
+      pss: selectedRate.pss,
+      thc: selectedRate.thc,
+      isps: 35,
+      blFee: 65,
+      total: totalWithFees,
+    });
+    setOceanFreightCost(totalWithFees);
     setIsLiveFreight(false);
+    setLiveCarrier(null);
     setLiveTransitTime(null);
+  }, [selectedRate]);
+
+  useEffect(() => {
+    if (!selectedRate) return;
+    setLeg3Rate(null);
+    setLeg3EstimateUsd(0);
   }, [selectedRate]);
 
   const phaseAUsd = originTruckingVnd / exchangeRate;
   const phaseBUsd = oceanFreightCost;
-  const phaseCUsd = selectedRate.inlandTrucking;
+  const phaseCUsd = leg3EstimateUsd;
 
   const totalExwCost = quantity * unitExwPrice;
   const totalDuties = totalExwCost * (dutyRate / 100);
@@ -140,14 +221,13 @@ export default function QuoteDetailPage() {
   const fetchLiveOceanFreight = async () => {
     setIsFetchingFreight(true);
     try {
+      const portCode = selectedRate.port.match(/\(([A-Z]+)\)/)?.[1] ?? "USLAX";
       const response = await fetch("/api/freightos", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           originPort: "VNHPH",
-          destinationPort: getDestinationPortCode(selectedRate.port),
+          destinationPort: portCode,
         }),
       });
 
@@ -158,6 +238,7 @@ export default function QuoteDetailPage() {
       const data = (await response.json()) as {
         estimatedPrice?: number;
         transitTime?: string;
+        carrier?: string;
         source?: string;
       };
 
@@ -166,19 +247,35 @@ export default function QuoteDetailPage() {
         throw new Error("No valid estimate returned.");
       }
 
-      setOceanFreightCost(livePrice);
+      const derived = deriveBreakdown(livePrice);
+      setBreakdown(derived);
+      setOceanFreightCost(derived.total);
       setIsLiveFreight(true);
-      setLiveTransitTime(data.transitTime ?? null);
+      setLiveCarrier(data.carrier ?? selectedRate.carrier ?? null);
+      setLiveTransitTime(data.transitTime ?? selectedRate.transit ?? null);
       showToast(
         data.source === "fallback"
           ? "Freightos unavailable, using fallback estimate."
           : "Live Freightos estimate updated.",
       );
-    } catch {
+    } catch (err) {
+      console.error("Freightos fetch failed:", err);
       const staticOceanCost =
         selectedRate.baseFreight + selectedRate.thc + selectedRate.bunker + selectedRate.pss;
-      setOceanFreightCost(staticOceanCost);
+      const totalWithFees = staticOceanCost + 35 + 65;
+      setBreakdown({
+        base: selectedRate.baseFreight,
+        bunker: selectedRate.bunker,
+        caf: 0,
+        pss: selectedRate.pss,
+        thc: selectedRate.thc,
+        isps: 35,
+        blFee: 65,
+        total: totalWithFees,
+      });
+      setOceanFreightCost(totalWithFees);
       setIsLiveFreight(false);
+      setLiveCarrier(null);
       setLiveTransitTime(null);
       showToast("Live estimate failed. Reverted to static CSV data.");
     } finally {
@@ -186,11 +283,62 @@ export default function QuoteDetailPage() {
     }
   };
 
-  const handleGenerateQuote = () => {
+  async function saveQuoteToDatabase() {
+    const destPortCode = selectedRate.port.match(/\(([A-Z]+)\)/)?.[1] ?? "USLAX";
+    const payload = {
+      customer_name: customerName.trim() || "Unknown Customer",
+      contact_email: contactEmail.trim() || undefined,
+      po_number: poNumber.trim() || undefined,
+      products: product,
+      incoterm: "DDP",
+      origin_port: "VNHPH",
+      dest_port: destPortCode,
+      container_type: "40HC",
+      carrier: selectedRate.carrier ?? undefined,
+      delivery_address: deliveryAddress.trim() || undefined,
+      delivery_state: leg3Rate?.state ?? deliveryState,
+      delivery_zip: leg3Rate?.zip ?? undefined,
+      delivery_city: leg3Rate?.city ?? undefined,
+      leg1_cost_vnd: originTruckingVnd,
+      leg2_breakdown: {
+        carrier: liveCarrier ?? selectedRate.carrier ?? "Unknown",
+        service: "",
+        transitDays: liveTransitTime ?? selectedRate.transit,
+        validUntil: "",
+        etd: "",
+        charges: {
+          baseFreight: breakdown.base,
+          baf: breakdown.bunker,
+          caf: breakdown.caf,
+          pss: breakdown.pss,
+          thcOrigin: breakdown.thc,
+          thcDestination: 0,
+          isps: breakdown.isps,
+          blFee: breakdown.blFee,
+        },
+        total: breakdown.total,
+        source: isLiveFreight ? ("freightos_sandbox" as const) : ("simulated" as const),
+      },
+      leg2_total_usd: breakdown.total,
+      leg3_estimate_usd: leg3Rate?.[leg3Chosen] ?? leg3EstimateUsd ?? 0,
+      status: "Quote Sent",
+    };
+
+    const res = await fetch("/api/shipping/quotes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (json.error) throw new Error(json.error);
+    return json.data as { id: string };
+  }
+
+  const handleGenerateQuote = (quoteIdOverride?: string) => {
     const now = new Date();
     const validity = new Date(now);
     validity.setDate(validity.getDate() + 30);
-    const quoteId = `TBP-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    const quoteId = quoteIdOverride ?? `TBP-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
@@ -225,7 +373,7 @@ export default function QuoteDetailPage() {
 
       <section class="mt-6 rounded-lg border border-slate-200 p-4">
         <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Bill To</p>
-        <p class="mt-1 text-lg font-semibold text-slate-900">Truck Centers, Inc.</p>
+        <p class="mt-1 text-lg font-semibold text-slate-900">${customerName.trim() || "Truck Centers, Inc."}</p>
       </section>
 
       <section class="mt-6">
@@ -328,6 +476,68 @@ export default function QuoteDetailPage() {
 
         <main className="grid gap-6 lg:grid-cols-[1.35fr_0.9fr]">
           <section className="space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-5">
+              <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-slate-500">
+                Customer & Order Info
+              </h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2 md:col-span-1">
+                  <label className="mb-1 block text-sm text-slate-600">Customer Name *</label>
+                  <input
+                    type="text"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="e.g. AutoParts USA Inc."
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="col-span-2 md:col-span-1">
+                  <label className="mb-1 block text-sm text-slate-600">Contact Email</label>
+                  <input
+                    type="email"
+                    value={contactEmail}
+                    onChange={(e) => setContactEmail(e.target.value)}
+                    placeholder="e.g. john@autopartsusa.com"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="col-span-2 md:col-span-1">
+                  <label className="mb-1 block text-sm text-slate-600">PO Number</label>
+                  <input
+                    type="text"
+                    value={poNumber}
+                    onChange={(e) => setPoNumber(e.target.value)}
+                    placeholder="e.g. PO-2026-0042"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="col-span-2 md:col-span-1">
+                  <label className="mb-1 block text-sm text-slate-600">Delivery State (US)</label>
+                  <select
+                    value={deliveryState}
+                    onChange={(e) => setDeliveryState(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  >
+                    {["CA", "WA", "NY", "MA", "MD", "VA", "GA", "SC", "TX", "FL"].map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <label className="mb-1 block text-sm text-slate-600">Delivery Address</label>
+                  <input
+                    type="text"
+                    value={deliveryAddress}
+                    onChange={(e) => setDeliveryAddress(e.target.value)}
+                    placeholder="Street address, City, ZIP"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
             <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
               <div className="mb-3 flex items-center gap-2">
                 <Building2 className="h-4 w-4 text-slate-700" />
@@ -338,9 +548,14 @@ export default function QuoteDetailPage() {
               <label className="grid gap-2">
                 <span className="text-sm font-medium text-slate-700">Origin Trucking Cost (VND)</span>
                 <input
-                  type="number"
-                  value={originTruckingVnd}
-                  onChange={(event) => setOriginTruckingVnd(Number(event.target.value) || 0)}
+                  type="text"
+                  inputMode="numeric"
+                  value={formatVNDInput(originTruckingVnd)}
+                  onChange={(e) => {
+                    const raw = parseVNDInput(e.target.value);
+                    setOriginTruckingVnd(raw);
+                  }}
+                  autoComplete="off"
                   className="min-h-[44px] rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </label>
@@ -348,7 +563,7 @@ export default function QuoteDetailPage() {
                 Trucking from TBP Factory to Hai Phong/Ho Chi Minh.
               </p>
               <p className="mt-2 text-sm font-semibold text-slate-800">
-                Subtotal A: {formatCurrency(phaseAUsd)} (Rate: 25,000 VND/USD)
+                Subtotal A: {formatCurrency(phaseAUsd)} (Rate: 26,055 VND/USD)
               </p>
             </article>
 
@@ -368,61 +583,167 @@ export default function QuoteDetailPage() {
                 <RefreshCw className={`h-4 w-4 ${isFetchingFreight ? "animate-spin" : ""}`} />
                 {isFetchingFreight ? "Fetching..." : "Fetch Live Freightos Estimate"}
               </button>
-              <p className="text-sm text-slate-600">
-                Ocean transit from VN to <span className="font-medium text-slate-800">{selectedRate.port}</span>.
-                {" "}Carrier: <span className="font-medium text-slate-800">{selectedRate.carrier}</span>.
+              <p className="text-sm font-medium text-slate-800">
+                Ocean transit from VN to <span className="font-semibold text-slate-900">{selectedRate.port}</span>.
+                {" "}Carrier: <span className="font-semibold text-slate-900">{selectedRate.carrier}</span>.
               </p>
-              <p className="mt-1 text-sm text-slate-600">
+              <p className="mt-1 text-sm font-medium text-slate-800">
                 Estimated Transit: {liveTransitTime ?? selectedRate.transit}
               </p>
-              {isLiveFreight ? (
-                <p className="mt-3 text-sm text-slate-600">All-in Ocean Freight (API Estimate)</p>
-              ) : (
-                <div className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
-                  <p>Base: {formatCurrency(selectedRate.baseFreight)}</p>
-                  <p>THC: {formatCurrency(selectedRate.thc)}</p>
-                  <p>Bunker: {formatCurrency(selectedRate.bunker)}</p>
-                  <p>PSS: {formatCurrency(selectedRate.pss)}</p>
-                </div>
-              )}
-              <div className="mt-2 flex items-center gap-2">
-                <p className="text-sm font-semibold text-slate-800">
-                  Subtotal B: {formatCurrency(phaseBUsd)}
-                </p>
-                {isLiveFreight ? (
-                  <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
-                    Live API Data
+
+              <div className="mt-3 space-y-1">
+                {isLiveFreight && (
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                      ✓ Live Freightos Estimate
+                    </span>
+                    {liveCarrier && (
+                      <span className="text-xs font-medium text-slate-600">Carrier: {liveCarrier}</span>
+                    )}
+                    {liveTransitTime && (
+                      <span className="text-xs font-medium text-slate-600">Transit: {liveTransitTime} days</span>
+                    )}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm font-medium text-slate-800">
+                  <span>
+                    Base Freight: <strong className="font-semibold text-slate-900">${breakdown.base.toLocaleString()}</strong>
                   </span>
-                ) : null}
+                  <span>
+                    THC (Origin): <strong className="font-semibold text-slate-900">${breakdown.thc.toLocaleString()}</strong>
+                  </span>
+                  <span>
+                    Bunker (BAF): <strong className="font-semibold text-slate-900">${breakdown.bunker.toLocaleString()}</strong>
+                  </span>
+                  <span>
+                    PSS:{" "}
+                    <strong className={breakdown.pss > 0 ? "font-semibold text-orange-600" : "font-semibold text-slate-900"}>
+                      ${breakdown.pss.toLocaleString()}
+                    </strong>
+                  </span>
+                  <span>
+                    CAF: <strong className="font-semibold text-slate-900">${breakdown.caf.toLocaleString()}</strong>
+                  </span>
+                  <span>
+                    ISPS + B/L: <strong className="font-semibold text-slate-900">${(breakdown.isps + breakdown.blFee).toLocaleString()}</strong>
+                  </span>
+                </div>
+
+                <div className="mt-2 border-t border-slate-100 pt-2">
+                  <span className="text-sm font-bold text-slate-900">
+                    Subtotal B: ${breakdown.total.toLocaleString()}
+                  </span>
+                  {!isLiveFreight && (
+                    <span className="ml-2 text-xs font-medium text-slate-500">(from market rates)</span>
+                  )}
+                </div>
               </div>
             </article>
 
             <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
-              <div className="mb-3 flex items-center gap-2">
+              <div className="mb-4 flex items-center gap-2">
                 <Truck className="h-4 w-4 text-slate-700" />
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500">
                   Phase C: US Domestic Trucking
                 </h2>
               </div>
-              <label className="mt-2 grid gap-2">
-                <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-700">
-                  <MapPin className="h-4 w-4" />
-                  Final Destination ZIP Code
-                </span>
-                <input
-                  type="text"
-                  value={destinationZipCode}
-                  onChange={(event) => setDestinationZipCode(event.target.value)}
-                  placeholder="e.g. 77001"
-                  className="min-h-[44px] rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </label>
-              <p className="mt-2 text-sm text-slate-600">
-                Inland delivery from US Port to customer's warehouse.
+
+              <p className="mb-4 text-sm text-slate-600">
+                Delivery from port{" "}
+                <strong>
+                  {selectedRate?.port?.match(/\(([A-Z]+)\)/)?.[1] ?? "TBD"}
+                </strong>{" "}
+                to warehouse / distributor address
               </p>
-              <p className="mt-2 text-sm font-semibold text-slate-800">
-                Subtotal C: {formatCurrency(phaseCUsd)}
-              </p>
+
+              <ZipDeliveryInput
+                portCode={
+                  selectedRate?.port?.match(/\(([A-Z]+)\)/)?.[1] ?? "USLAX"
+                }
+                containerType="40HC"
+                onRateCalculated={(result) => {
+                  setLeg3Rate(result);
+                  setLeg3Chosen("mid");
+                  setLeg3EstimateUsd(result.mid);
+                }}
+              />
+
+              {leg3Rate && (
+                <div className="mt-4 space-y-3">
+                  <div className="grid grid-cols-3 gap-3">
+                    {(["low", "mid", "high"] as const).map((level) => {
+                      const labels = {
+                        low: "Conservative",
+                        mid: "Standard",
+                        high: "Peak Season",
+                      };
+                      const active = leg3Chosen === level;
+                      return (
+                        <button
+                          key={level}
+                          type="button"
+                          onClick={() => {
+                            setLeg3Chosen(level);
+                            setLeg3EstimateUsd(leg3Rate[level]);
+                          }}
+                          className={`rounded-xl border-2 p-3 text-center transition-all ${
+                            active
+                              ? "border-blue-600 bg-blue-50"
+                              : "border-slate-200 bg-white hover:border-slate-300"
+                          }`}
+                        >
+                          <div
+                            className={`mb-1 text-xs font-medium ${
+                              active ? "text-blue-600" : "text-slate-400"
+                            }`}
+                          >
+                            {level.toUpperCase()}
+                          </div>
+                          <div
+                            className={`text-base font-bold ${
+                              active ? "text-blue-700" : "text-slate-700"
+                            }`}
+                          >
+                            ${leg3Rate[level].toLocaleString()}
+                          </div>
+                          <div
+                            className={`mt-0.5 text-xs ${
+                              active ? "text-blue-500" : "text-slate-400"
+                            }`}
+                          >
+                            {labels[level]}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <p className="flex items-start gap-1.5 text-xs font-medium text-slate-700">
+                    <span className="shrink-0">⚠️</span>
+                    <span>
+                      Estimate only · {leg3Rate.city}, {leg3Rate.state}{" "}
+                      {leg3Rate.zip} · {leg3Rate.miles} miles from port. Final
+                      rate confirmed by carrier after booking.
+                    </span>
+                  </p>
+
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-2">
+                    <span className="text-sm font-semibold text-slate-900">
+                      Subtotal C: ${leg3Rate[leg3Chosen].toLocaleString()}
+                    </span>
+                    <span className="text-xs capitalize font-medium text-slate-600">
+                      {leg3Chosen} estimate
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {!leg3Rate && (
+                <p className="mt-3 text-xs text-slate-400">
+                  Search a ZIP or area above to calculate trucking estimate.
+                </p>
+              )}
             </article>
 
             <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
@@ -506,8 +827,17 @@ export default function QuoteDetailPage() {
                   <span className="font-semibold text-slate-900">{formatCurrency(phaseBUsd)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-600">Phase C</span>
-                  <span className="font-semibold text-slate-900">{formatCurrency(phaseCUsd)}</span>
+                  <span className="text-slate-600">
+                    Phase C
+                    {leg3Chosen && leg3Rate && (
+                      <span className="ml-1 text-xs capitalize text-slate-400">
+                        ({leg3Chosen})
+                      </span>
+                    )}
+                  </span>
+                  <span className="font-medium">
+                    ${(leg3EstimateUsd ?? 0).toLocaleString()}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-600">Duties</span>
@@ -537,11 +867,44 @@ export default function QuoteDetailPage() {
 
               <button
                 type="button"
-                onClick={handleGenerateQuote}
-                className="mt-4 min-h-[44px] w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                onClick={async () => {
+                  if (!customerName.trim()) {
+                    alert("Please enter a Customer Name before saving.");
+                    return;
+                  }
+                  setSaveStatus("saving");
+                  try {
+                    const saved = await saveQuoteToDatabase();
+                    setSavedQuoteId(saved.id);
+                    setSaveStatus("saved");
+                    handleGenerateQuote(saved.id);
+                  } catch (err) {
+                    console.error("Failed to save quote:", err);
+                    setSaveStatus("error");
+                  }
+                }}
+                disabled={saveStatus === "saving"}
+                className="mt-4 min-h-[44px] w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
               >
-                Save &amp; Generate Quote
+                {saveStatus === "saving"
+                  ? "Saving..."
+                  : saveStatus === "saved"
+                    ? `✓ Saved as ${savedQuoteId}`
+                    : saveStatus === "error"
+                      ? "⚠ Save Failed — Retry"
+                      : "Save & Generate Quote"}
               </button>
+
+              {saveStatus === "saved" && savedQuoteId && (
+                <div className="mt-3 flex items-center justify-between rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+                  <span>
+                    ✓ Quote <strong>{savedQuoteId}</strong> saved to CRM
+                  </span>
+                  <a href="/shipping-crm" className="font-medium underline">
+                    View in Dashboard →
+                  </a>
+                </div>
+              )}
             </div>
           </aside>
         </main>
