@@ -876,6 +876,10 @@ export default function QuoteDetailPage() {
                   setSaveStatus("saving");
                   try {
                     const saved = await saveQuoteToDatabase();
+                    if (!saved) {
+                      setSaveStatus("error");
+                      return;
+                    }
                     setSavedQuoteId(saved.id);
                     setSaveStatus("saved");
                     handleGenerateQuote(saved.id);
