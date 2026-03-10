@@ -284,6 +284,7 @@ export default function QuoteDetailPage() {
   };
 
   async function saveQuoteToDatabase() {
+    if (!selectedRate) return;
     const destPortCode = selectedRate.port.match(/\(([A-Z]+)\)/)?.[1] ?? "USLAX";
     const payload = {
       customer_name: customerName.trim() || "Unknown Customer",
