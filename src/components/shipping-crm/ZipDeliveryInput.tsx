@@ -55,7 +55,7 @@ export function ZipDeliveryInput({
   const [zipStatus, setZipStatus] = useState<"idle" | "loading" | "valid" | "invalid">("idle");
   const [sugLoading, setSugLoading] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Load suggestions when portCode changes ───────────────────────────────
   useEffect(() => {
@@ -106,7 +106,10 @@ export function ZipDeliveryInput({
     setOpen(true);
 
     // If exactly 5 digits → debounce then validate new ZIP
-    clearTimeout(debounceRef.current);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
     if (/^\d{5}$/.test(val)) {
       debounceRef.current = setTimeout(() => validateNewZip(val), 500);
     }
