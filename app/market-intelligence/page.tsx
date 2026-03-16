@@ -18,15 +18,15 @@ import {
   Search,
 } from "lucide-react";
 
-const CUSTOM_OPTION = "Custom";
+const CUSTOM_OPTION = "custom";
 
 const TOPIC_OPTIONS = [
-  { value: "Automotive Expansion & Investments", trending: true },
-  { value: "Auto Supply Chain Disruptions", trending: false },
-  { value: "Automotive Leadership Changes", trending: false },
-  { value: "EV Transition & Tech Upgrades", trending: true },
-  { value: CUSTOM_OPTION, trending: false },
-] as const;
+  { label: "🇺🇸 US Supply Chain Shifts & Shortages", value: "automotive supply chain US OR auto parts nearshoring OR OEM supplier shortage" },
+  { label: "🏭 US Factory Expansions & Investments", value: "new auto plant investment US OR automotive manufacturing expansion USA" },
+  { label: "💻 US Auto Tech & Transformation", value: "automotive digital transformation US OR car dealership tech upgrade" },
+  { label: "👔 US Auto Leadership Changes", value: "automotive executive hired OR automotive procurement US" },
+  { label: "Custom Topic...", value: "custom" },
+];
 
 const MAX_RECENT_CUSTOM = 3;
 
@@ -271,8 +271,7 @@ export default function MarketIntelligencePage() {
               >
                 {TOPIC_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
-                    {opt.value}
-                    {opt.trending ? " — Trending" : ""}
+                    {opt.label}
                   </option>
                 ))}
               </select>
