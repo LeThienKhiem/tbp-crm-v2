@@ -64,7 +64,8 @@ const modules = [
     id: "07",
     title: "Market Intelligence",
     description: "Macro trend, price movement, and competitor watch insights.",
-    status: "Coming Soon",
+    status: "Active",
+    href: "/market-intelligence",
     icon: Globe,
   },
   {
