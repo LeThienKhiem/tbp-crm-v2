@@ -23,8 +23,9 @@ export async function POST(req: NextRequest) {
     const jobTitle = optStr(body.jobTitle ?? body.title);
     const industry = optStr(body.industry);
     const location = optStr(body.location);
+    const country = optStr(body.country) ?? "United States";
     const page = typeof body.page === "number" ? body.page : 1;
-    const perPage = typeof body.perPage === "number" ? Math.min(body.perPage, 25) : 25;
+    const perPage = typeof body.perPage === "number" ? Math.min(body.perPage, 20) : 20;
 
     const result = await apiSearch({
       query,
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
       jobTitle,
       industry,
       location,
+      country,
       page,
       perPage,
     });

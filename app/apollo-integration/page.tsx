@@ -44,6 +44,8 @@ type LeadRow = {
 type RevealedContact = {
   id: string;
   name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
   email?: string | null;
   phone?: string | null;
   direct_dial?: string | null;
@@ -62,9 +64,13 @@ export default function ApolloIntegrationPage() {
   const [jobTitle, setJobTitle] = useState("");
   const [industry, setIndustry] = useState("");
   const [location, setLocation] = useState("");
+  const [country, setCountry] = useState("United States");
   const [searchLoading, setSearchLoading] = useState(false);
+  const [loadMoreLoading, setLoadMoreLoading] = useState(false);
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
 
   const [revealModal, setRevealModal] = useState<LeadRow | null>(null);
   const [revealLoading, setRevealLoading] = useState(false);
@@ -77,12 +83,16 @@ export default function ApolloIntegrationPage() {
     setTimeout(() => setToast(null), 5000);
   }, []);
 
+  const PAGE_SIZE = 20;
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     setSearchError(null);
     setSearchLoading(true);
     setLeads([]);
     setDetailLead(null);
+    setPage(1);
+    setHasMore(false);
     try {
       const res = await fetch("/api/apollo/search", {
         method: "POST",
@@ -93,7 +103,9 @@ export default function ApolloIntegrationPage() {
           jobTitle: jobTitle.trim() || undefined,
           industry: industry.trim() || undefined,
           location: location.trim() || undefined,
-          perPage: 25,
+          country: country || "United States",
+          page: 1,
+          perPage: PAGE_SIZE,
         }),
       });
       const json = await res.json();
@@ -102,12 +114,63 @@ export default function ApolloIntegrationPage() {
         if (res.status === 401) showToast("Apollo API key invalid or expired.", "error");
         return;
       }
-      setLeads(json.data?.people ?? []);
+      const people = json.data?.people ?? [];
+      setLeads(people);
+      const pagination = json.data?.pagination;
+      const totalEntries = pagination?.total_entries ?? json.data?.totalEntries;
+      const perPage = pagination?.per_page ?? PAGE_SIZE;
+      const totalPages = totalEntries != null ? Math.ceil(totalEntries / perPage) : null;
+      setHasMore(
+        totalPages != null ? 1 < totalPages : people.length === PAGE_SIZE
+      );
     } catch {
       setSearchError("Search request failed.");
       showToast("Search request failed.", "error");
     } finally {
       setSearchLoading(false);
+    }
+  };
+
+  const loadMore = async () => {
+    if (loadMoreLoading || !hasMore) return;
+    setLoadMoreLoading(true);
+    const nextPage = page + 1;
+    try {
+      const res = await fetch("/api/apollo/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: query.trim() || undefined,
+          companyName: companyName.trim() || undefined,
+          jobTitle: jobTitle.trim() || undefined,
+          industry: industry.trim() || undefined,
+          location: location.trim() || undefined,
+          country: country || "United States",
+          page: nextPage,
+          perPage: PAGE_SIZE,
+        }),
+      });
+      const json = await res.json();
+      if (json.error) {
+        setSearchError(json.error);
+        setLoadMoreLoading(false);
+        return;
+      }
+      const people = json.data?.people ?? [];
+      setLeads((prev) => [...prev, ...people]);
+      setPage(nextPage);
+      const pagination = json.data?.pagination;
+      const totalEntries = pagination?.total_entries ?? json.data?.totalEntries;
+      const perPage = pagination?.per_page ?? PAGE_SIZE;
+      const totalPages = totalEntries != null ? Math.ceil(totalEntries / perPage) : null;
+      setHasMore(
+        totalPages != null ? nextPage < totalPages : people.length === PAGE_SIZE
+      );
+    } catch {
+      setSearchError("Failed to load more results.");
+      showToast("Failed to load more results.", "error");
+    } finally {
+      setLoadMoreLoading(false);
     }
   };
 
@@ -133,12 +196,15 @@ export default function ApolloIntegrationPage() {
         return;
       }
       const data = json.data as RevealedContact;
+      const revealedFullName =
+        [data.first_name, data.last_name].filter(Boolean).join(" ").trim() || data.name || null;
       setRevealedMap((prev) => ({ ...prev, [rowId]: data }));
       setLeads((prev) =>
         prev.map((lead) =>
           lead.id === rowId
             ? {
                 ...lead,
+                name: revealedFullName ?? lead.name,
                 linkedin_url: data.linkedin_url ?? lead.linkedin_url,
                 seniority: data.seniority ?? lead.seniority,
                 industry: data.industry ?? lead.industry,
@@ -147,6 +213,11 @@ export default function ApolloIntegrationPage() {
               }
             : lead
         )
+      );
+      setDetailLead((prev) =>
+        prev?.id === rowId && revealedFullName
+          ? { ...prev, name: revealedFullName }
+          : prev
       );
       showToast("Contact revealed.", "success");
       closeRevealModal();
@@ -225,7 +296,7 @@ export default function ApolloIntegrationPage() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <label htmlFor="filter-title" className="mb-1.5 block text-sm font-medium text-slate-700">
                   Job Title
@@ -263,10 +334,30 @@ export default function ApolloIntegrationPage() {
                   type="text"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  placeholder="e.g. California"
+                  placeholder="e.g. New York"
                   className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                   autoComplete="off"
                 />
+              </div>
+              <div>
+                <label htmlFor="filter-country" className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Country
+                </label>
+                <select
+                  id="filter-country"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="United States">United States</option>
+                  <option value="Canada">Canada</option>
+                  <option value="United Kingdom">United Kingdom</option>
+                  <option value="Germany">Germany</option>
+                  <option value="France">France</option>
+                  <option value="Australia">Australia</option>
+                  <option value="Vietnam">Vietnam</option>
+                  <option value="India">India</option>
+                </select>
               </div>
             </div>
             <button
@@ -303,105 +394,222 @@ export default function ApolloIntegrationPage() {
             </p>
           </div>
           {leads.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/80">
-                    <th className="whitespace-nowrap px-3 py-2.5 font-medium text-slate-700 md:px-4">Name</th>
-                    <th className="whitespace-nowrap px-3 py-2.5 font-medium text-slate-700 md:px-4">Title</th>
-                    <th className="whitespace-nowrap px-3 py-2.5 font-medium text-slate-700 md:px-4">Company</th>
-                    <th className="whitespace-nowrap px-3 py-2.5 font-medium text-slate-700 md:px-4">Seniority / Dept</th>
-                    <th className="whitespace-nowrap px-3 py-2.5 font-medium text-slate-700 md:px-4">Industry</th>
-                    <th className="whitespace-nowrap px-3 py-2.5 font-medium text-slate-700 md:px-4">LinkedIn</th>
-                    <th className="whitespace-nowrap px-3 py-2.5 font-medium text-slate-700 text-right md:px-4">Contact</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {leads.map((lead) => {
-                    const revealed = revealedMap[lead.id];
-                    const seniorityDept =
-                      lead.seniority != null && lead.department != null
-                        ? `${lead.seniority} / ${lead.department}`
-                        : lead.seniority ?? lead.department ?? "—";
-                    return (
-                      <tr
-                        key={lead.id}
-                        onClick={() => setDetailLead(lead)}
-                        className="border-b border-slate-100 cursor-pointer hover:bg-blue-50/50 transition-colors"
-                      >
-                        <td className="px-3 py-2.5 text-slate-900 md:px-4">{d(lead.name)}</td>
-                        <td className="px-3 py-2.5 text-slate-600 md:px-4">{d(lead.title)}</td>
-                        <td className="px-3 py-2.5 text-slate-600 md:px-4">{d(lead.organization_name)}</td>
-                        <td className="px-3 py-2.5 text-slate-600 md:px-4">{seniorityDept}</td>
-                        <td className="px-3 py-2.5 text-slate-600 md:px-4">{d(lead.industry)}</td>
-                        <td className="px-3 py-2.5 md:px-4">
-                          {lead.linkedin_url ? (
-                            <a
-                              href={lead.linkedin_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 text-blue-600 hover:underline"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                              </svg>
-                              <span>View Profile</span>
-                            </a>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                        <td className="px-3 py-2.5 text-right md:px-4" onClick={(e) => e.stopPropagation()}>
-                          {revealed ? (
-                            <div className="inline-flex flex-col items-end gap-0.5 text-xs text-slate-600">
-                              {revealed.email && (
-                                <span className="flex items-center gap-1">
-                                  <Mail className="h-3.5 w-3.5 shrink-0" />
-                                  {revealed.email}
-                                </span>
-                              )}
-                              {revealed.phone && (
-                                <span className="flex items-center gap-1">
-                                  <Phone className="h-3.5 w-3.5 shrink-0" />
-                                  {revealed.phone}
-                                </span>
-                              )}
-                              {revealed.direct_dial && (
-                                <span className="flex items-center gap-1 text-slate-500">
-                                  Direct: {revealed.direct_dial}
-                                </span>
-                              )}
-                              {!revealed.email && !revealed.phone && !revealed.direct_dial && (
-                                <span className="text-slate-400">No email/phone returned</span>
-                              )}
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openRevealModal(lead);
-                              }}
-                              className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
-                            >
-                              Reveal Contact
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <>
+              {/* Desktop: table */}
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50/80">
+                      <th className="whitespace-nowrap px-3 py-2.5 font-medium text-slate-700 md:px-4">Name</th>
+                      <th className="whitespace-nowrap px-3 py-2.5 font-medium text-slate-700 md:px-4">Title</th>
+                      <th className="whitespace-nowrap px-3 py-2.5 font-medium text-slate-700 md:px-4">Company</th>
+                      <th className="whitespace-nowrap px-3 py-2.5 font-medium text-slate-700 md:px-4">Seniority / Dept</th>
+                      <th className="whitespace-nowrap px-3 py-2.5 font-medium text-slate-700 md:px-4">Industry</th>
+                      <th className="whitespace-nowrap px-3 py-2.5 font-medium text-slate-700 md:px-4">LinkedIn</th>
+                      <th className="whitespace-nowrap px-3 py-2.5 font-medium text-slate-700 text-right md:px-4">Contact</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leads.map((lead) => {
+                      const revealed = revealedMap[lead.id];
+                      const seniorityDept =
+                        lead.seniority != null && lead.department != null
+                          ? `${lead.seniority} / ${lead.department}`
+                          : lead.seniority ?? lead.department ?? "—";
+                      return (
+                        <tr
+                          key={lead.id}
+                          onClick={() => setDetailLead(lead)}
+                          className="border-b border-slate-100 cursor-pointer hover:bg-blue-50/50 transition-colors"
+                        >
+                          <td className="px-3 py-2.5 text-slate-900 md:px-4">{d(lead.name)}</td>
+                          <td className="px-3 py-2.5 text-slate-600 md:px-4">{d(lead.title)}</td>
+                          <td className="px-3 py-2.5 text-slate-600 md:px-4">{d(lead.organization_name)}</td>
+                          <td className="px-3 py-2.5 text-slate-600 md:px-4">{seniorityDept}</td>
+                          <td className="px-3 py-2.5 text-slate-600 md:px-4">{d(lead.industry)}</td>
+                          <td className="px-3 py-2.5 md:px-4">
+                            {lead.linkedin_url ? (
+                              <a
+                                href={lead.linkedin_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 text-blue-600 hover:underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                                  <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                                </svg>
+                                <span>View Profile</span>
+                              </a>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td className="px-3 py-2.5 text-right md:px-4" onClick={(e) => e.stopPropagation()}>
+                            {revealed ? (
+                              <div className="inline-flex flex-col items-end gap-0.5 text-xs text-slate-600">
+                                {revealed.email && (
+                                  <span className="flex items-center gap-1">
+                                    <Mail className="h-3.5 w-3.5 shrink-0" />
+                                    {revealed.email}
+                                  </span>
+                                )}
+                                {revealed.phone && (
+                                  <span className="flex items-center gap-1">
+                                    <Phone className="h-3.5 w-3.5 shrink-0" />
+                                    {revealed.phone}
+                                  </span>
+                                )}
+                                {revealed.direct_dial && (
+                                  <span className="flex items-center gap-1 text-slate-500">
+                                    Direct: {revealed.direct_dial}
+                                  </span>
+                                )}
+                                {!revealed.email && !revealed.phone && !revealed.direct_dial && (
+                                  <span className="text-slate-400">No email/phone returned</span>
+                                )}
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openRevealModal(lead);
+                                }}
+                                className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
+                              >
+                                Reveal Contact
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile: cards */}
+              <div className="flex flex-col gap-4 p-4 md:hidden">
+                {leads.map((lead) => {
+                  const revealed = revealedMap[lead.id];
+                  const seniorityDept =
+                    lead.seniority != null && lead.department != null
+                      ? `${lead.seniority} / ${lead.department}`
+                      : lead.seniority ?? lead.department ?? null;
+                  return (
+                    <div
+                      key={lead.id}
+                      onClick={() => setDetailLead(lead)}
+                      className="flex cursor-pointer flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:bg-slate-50/50"
+                    >
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-900">{d(lead.name)}</h3>
+                        <p className="mt-0.5 text-sm text-slate-600">{d(lead.title)}</p>
+                      </div>
+                      <div className="flex flex-col gap-1.5 text-sm">
+                        <p className="text-slate-700">
+                          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">Company:</span>{" "}
+                          {d(lead.organization_name)}
+                        </p>
+                        <p className="text-slate-700">
+                          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">Industry:</span>{" "}
+                          {d(lead.industry)}
+                        </p>
+                        <p className="text-slate-700">
+                          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">Seniority:</span>{" "}
+                          {seniorityDept != null ? seniorityDept : "—"}
+                        </p>
+                      </div>
+                      <div className="mt-auto w-full" onClick={(e) => e.stopPropagation()}>
+                        {revealed ? (
+                          <div className="flex w-full flex-col gap-2 rounded-lg border border-slate-100 bg-slate-50/50 p-3">
+                            {revealed.email && (
+                              <a
+                                href={`mailto:${revealed.email}`}
+                                className="flex w-full items-center gap-2 text-sm text-blue-600 hover:underline"
+                              >
+                                <Mail className="h-4 w-4 shrink-0" />
+                                {revealed.email}
+                              </a>
+                            )}
+                            {revealed.phone && (
+                              <a
+                                href={`tel:${revealed.phone}`}
+                                className="flex w-full items-center gap-2 text-sm text-blue-600 hover:underline"
+                              >
+                                <Phone className="h-4 w-4 shrink-0" />
+                                {revealed.phone}
+                              </a>
+                            )}
+                            {revealed.direct_dial && !revealed.phone && (
+                              <span className="flex w-full items-center gap-2 text-sm text-slate-600">
+                                <Phone className="h-4 w-4 shrink-0" />
+                                Direct: {revealed.direct_dial}
+                              </span>
+                            )}
+                            {(lead.linkedin_url ?? revealed.linkedin_url) && (
+                              <a
+                                href={lead.linkedin_url ?? revealed.linkedin_url ?? "#"}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex w-full items-center gap-2 text-sm text-blue-600 hover:underline"
+                              >
+                                <ExternalLink className="h-4 w-4 shrink-0" />
+                                LinkedIn
+                              </a>
+                            )}
+                            {!revealed.email && !revealed.phone && !revealed.direct_dial && (
+                              <span className="text-sm text-slate-400">No email/phone returned</span>
+                            )}
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => openRevealModal(lead)}
+                            className="w-full rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
+                          >
+                            Reveal Contact
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          ) : null}
+          {leads.length > 0 && hasMore && (
+            <div className="border-t border-slate-200 px-4 py-3 md:px-6">
+              <button
+                type="button"
+                onClick={loadMore}
+                disabled={loadMoreLoading}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-60"
+              >
+                {loadMoreLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading…
+                  </>
+                ) : (
+                  "See More"
+                )}
+              </button>
             </div>
-          ) : (
+          )}
+          {leads.length === 0 && searchLoading ? (
+            <div className="flex min-h-[120px] flex-col items-center justify-center gap-2 py-10 text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+              <p className="text-sm text-slate-500">Searching…</p>
+            </div>
+          ) : leads.length === 0 ? (
             <div className="flex min-h-[120px] flex-col items-center justify-center py-10 text-center">
               <User className="h-10 w-10 text-slate-300" />
               <p className="mt-2 text-sm text-slate-500">No leads yet</p>
               <p className="text-xs text-slate-400">Use the search above to find potential leads.</p>
             </div>
-          )}
+          ) : null}
         </section>
 
         {/* Detail drawer */}

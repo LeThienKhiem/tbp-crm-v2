@@ -25,6 +25,7 @@ export interface ApolloSearchParams {
   jobTitle?: string;
   industry?: string;
   location?: string;
+  country?: string;
   page?: number;
   perPage?: number;
 }
@@ -147,7 +148,9 @@ export async function apiSearch(params: ApolloSearchParams): Promise<ApolloSearc
   const industry = params.industry?.trim();
   if (industry) payload.organization_industries = [industry];
   const location = params.location?.trim();
-  if (location) payload.person_locations = [location];
+  const country = params.country?.trim() || "United States";
+  const personLocations = location ? [location, country] : [country];
+  payload.person_locations = personLocations;
   payload.page = params.page ?? 1;
   payload.per_page = Math.min(params.perPage ?? 25, 25);
 
@@ -191,8 +194,12 @@ export async function apiSearch(params: ApolloSearchParams): Promise<ApolloSearc
     const person = personSub ?? root;
     const org = safeObj(person.organization ?? root.organization);
 
-    const nameFromParts = [str(person.first_name), str(person.last_name)].filter(Boolean).join(" ").trim() || null;
-    const name = firstStr(person.name, root.name, nameFromParts) ?? "—";
+    const firstName = firstStr(person.first_name, root.first_name);
+    const lastName = firstStr(person.last_name, root.last_name);
+    const name =
+      [firstName, lastName].filter(Boolean).join(" ").trim() ||
+      firstStr(person.name, root.name) ||
+      "Unknown";
 
     const techPerson = arrStr(person.technologies);
     const techOrg = org ? arrStr(org.technologies ?? org.technology_names) : null;
@@ -266,6 +273,8 @@ export async function apiSearch(params: ApolloSearchParams): Promise<ApolloSearc
 export interface ApolloContactReveal {
   id: string;
   name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
   email?: string | null;
   phone?: string | null;
   direct_dial?: string | null;
@@ -305,9 +314,15 @@ function parsePersonResponse(data: unknown, personId: string): ApolloContactReve
   const p = data as Record<string, unknown>;
   const person = (p.person != null && typeof p.person === "object" ? p.person : p) as Record<string, unknown>;
   const org = safeObj(person.organization);
+  const firstName = strReveal(person.first_name);
+  const lastName = strReveal(person.last_name);
+  const fullName =
+    [firstName, lastName].filter(Boolean).join(" ").trim() || strReveal(person.name) || null;
   return {
     id: strReveal(person.id) ?? personId,
-    name: strReveal(person.name) ?? null,
+    name: fullName,
+    first_name: firstName,
+    last_name: lastName,
     email: strReveal(person.email) ?? null,
     phone: strReveal(person.sanitized_phone) ?? strReveal(person.phone) ?? null,
     direct_dial: strReveal(person.direct_dial) ?? strReveal(person.mobile_phone) ?? null,
