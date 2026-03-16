@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   BarChart3,
+  Compass,
   Globe,
   LayoutTemplate,
   RefreshCcw,
@@ -18,13 +19,18 @@ const modules = [
     status: "Active",
     href: "/market-radar",
     icon: Ship,
+    ctaLabel: "View CRM Dashboard →",
+    ctaHref: "/shipping-crm",
   },
   {
     id: "02",
     title: "Apollo Integration",
     description: "Automated contact enrichment + email sequence builder.",
-    status: "Coming Soon",
+    status: "Active",
+    href: "/apollo-integration",
     icon: Users,
+    ctaLabel: "View Integration →",
+    ctaHref: "/apollo-integration",
   },
   {
     id: "03",
@@ -68,6 +74,14 @@ const modules = [
     status: "Coming Soon",
     icon: Workflow,
   },
+  {
+    id: "09",
+    title: "Logistic Explorer",
+    description: "Explore shipping rates, routes, and logistics data via the SeaRate API.",
+    status: "Active",
+    href: "https://searate-api.vercel.app/",
+    icon: Compass,
+  },
 ] as const;
 
 export default function Home() {
@@ -89,28 +103,47 @@ export default function Home() {
             const isActive = module.status === "Active";
 
             if (isActive && module.href) {
+              const isExternal = module.href.startsWith("http");
+              const cardContent = (
+                <>
+                  <div className="flex items-start justify-between">
+                    <span className="text-xs font-semibold text-blue-600">Module {module.id}</span>
+                    <Icon className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <h2 className="mt-3 text-lg font-semibold text-slate-900">{module.title}</h2>
+                  <p className="mt-2 text-sm text-slate-600">{module.description}</p>
+                  <span className="mt-4 inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-200">
+                    Active
+                  </span>
+                </>
+              );
               return (
                 <div
                   key={module.id}
                   className="group rounded-xl border border-blue-300 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-400 hover:shadow-md"
                 >
-                  <Link href={module.href} className="block">
-                    <div className="flex items-start justify-between">
-                      <span className="text-xs font-semibold text-blue-600">Module {module.id}</span>
-                      <Icon className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <h2 className="mt-3 text-lg font-semibold text-slate-900">{module.title}</h2>
-                    <p className="mt-2 text-sm text-slate-600">{module.description}</p>
-                    <span className="mt-4 inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-200">
-                      Active
-                    </span>
-                  </Link>
-                  <Link
-                    href="/shipping-crm"
-                    className="mt-1 block text-xs text-blue-600 underline"
-                  >
-                    View CRM Dashboard →
-                  </Link>
+                  {isExternal ? (
+                    <a
+                      href={module.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block"
+                    >
+                      {cardContent}
+                    </a>
+                  ) : (
+                    <Link href={module.href} className="block">
+                      {cardContent}
+                    </Link>
+                  )}
+                  {!isExternal && "ctaHref" in module && module.ctaHref && (
+                    <Link
+                      href={module.ctaHref}
+                      className="mt-1 block text-xs text-blue-600 underline"
+                    >
+                      {"ctaLabel" in module ? module.ctaLabel : "View →"}
+                    </Link>
+                  )}
                 </div>
               );
             }
