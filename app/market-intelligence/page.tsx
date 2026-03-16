@@ -21,10 +21,10 @@ import {
 const CUSTOM_OPTION = "custom";
 
 const TOPIC_OPTIONS = [
-  { label: "🇺🇸 US Supply Chain Shifts & Shortages", value: "automotive supply chain US OR auto parts nearshoring OR OEM supplier shortage" },
-  { label: "🏭 US Factory Expansions & Investments", value: "new auto plant investment US OR automotive manufacturing expansion USA" },
-  { label: "💻 US Auto Tech & Transformation", value: "automotive digital transformation US OR car dealership tech upgrade" },
-  { label: "👔 US Auto Leadership Changes", value: "automotive executive hired OR automotive procurement US" },
+  { label: "🇺🇸 US Supply Chain Shifts & Shortages", value: "automotive supply chain" },
+  { label: "🏭 US Factory Expansions & Investments", value: "automotive factory investment" },
+  { label: "💻 US Auto Tech & Transformation", value: "automotive technology" },
+  { label: "👔 US Auto Leadership Changes", value: "automotive CEO" },
   { label: "Custom Topic...", value: "custom" },
 ];
 

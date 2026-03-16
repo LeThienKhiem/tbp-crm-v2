@@ -205,11 +205,9 @@ export async function GET(req: NextRequest) {
       })
       .join("\n");
 
-    const prompt = `You are a B2B Sales Strategist. Analyze these news articles regarding "${topic}".
+    const prompt = `You are a B2B Sales Strategist for TBP Auto, focusing on penetrating the US market. Analyze these news articles about "${topic}". Filter out noise and identify the top 3 Sales Triggers specifically relevant to the USA or North American market. If an article is totally irrelevant, ignore it.
 
 ${headlines}
-
-Identify the top 3 Sales Triggers and provide a tactical action plan for the TBP Auto team.
 
 Provide a JSON response with exactly two keys:
 - "opportunity_level": choose strictly one of "High", "Medium", or "Low" based on B2B sales opportunity from this news.
