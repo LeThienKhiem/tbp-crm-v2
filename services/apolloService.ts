@@ -21,11 +21,24 @@ function apolloHeaders(): Record<string, string> {
 
 export interface ApolloSearchParams {
   query?: string;
+  companyName?: string;
   jobTitle?: string;
   industry?: string;
   location?: string;
   page?: number;
   perPage?: number;
+}
+
+/** Thrown when Apollo API returns 4xx/5xx; route can use statusCode and message. */
+export class ApolloApiError extends Error {
+  constructor(
+    public statusCode: number,
+    message: string,
+    public body?: unknown
+  ) {
+    super(message);
+    this.name = "ApolloApiError";
+  }
 }
 
 export interface ApolloPersonSummary {
@@ -120,29 +133,48 @@ export async function getOrganization(organizationId: string): Promise<ApolloOrg
 
 /**
  * Search leads via mixed_people/api_search.
- * Uses reveal_personal_emails: true for richer public data. Fills company gaps via organizations/show when needed.
+ * Payload matches Apollo v1: strings for q_keywords/q_organization_name, arrays for person_titles, organization_industries, person_locations.
+ * Only add a key when the user provided a value (no empty arrays or empty strings).
  */
 export async function apiSearch(params: ApolloSearchParams): Promise<ApolloSearchResult> {
-  const body: Record<string, unknown> = {
-    page: params.page ?? 1,
-    per_page: Math.min(params.perPage ?? 25, 25),
-    reveal_personal_emails: true,
-  };
-  if (params.query?.trim()) body.q_keywords = params.query.trim();
-  if (params.jobTitle?.trim()) body.person_titles = [params.jobTitle.trim()];
-  if (params.industry?.trim()) body.organization_industry_tag_ids = [params.industry.trim()];
-  if (params.location?.trim()) body.person_locations = [params.location.trim()];
+  const payload: Record<string, unknown> = {};
+  const keywords = params.query?.trim();
+  if (keywords) payload.q_keywords = keywords;
+  const companyName = params.companyName?.trim();
+  if (companyName) payload.q_organization_name = companyName;
+  const jobTitle = params.jobTitle?.trim();
+  if (jobTitle) payload.person_titles = [jobTitle];
+  const industry = params.industry?.trim();
+  if (industry) payload.organization_industries = [industry];
+  const location = params.location?.trim();
+  if (location) payload.person_locations = [location];
+  payload.page = params.page ?? 1;
+  payload.per_page = Math.min(params.perPage ?? 25, 25);
+
+  console.log("FINAL PAYLOAD:", payload);
 
   const res = await fetch(`${APOLLO_BASE}/mixed_people/api_search`, {
     method: "POST",
     headers: apolloHeaders(),
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
     const text = await res.text();
-    if (res.status === 401) throw new Error("Apollo API key invalid or expired");
-    throw new Error(`Apollo search failed: ${res.status} ${text.slice(0, 200)}`);
+    let apolloMessage: string;
+    try {
+      const json = JSON.parse(text) as { error?: string; errors?: Array<{ message?: string }> };
+      apolloMessage =
+        typeof json?.error === "string"
+          ? json.error
+          : Array.isArray(json?.errors) && json.errors[0]?.message
+            ? String(json.errors[0].message)
+            : text.slice(0, 300) || `HTTP ${res.status}`;
+    } catch {
+      apolloMessage = text.slice(0, 300) || `HTTP ${res.status}`;
+    }
+    if (res.status === 401) throw new ApolloApiError(401, "Apollo API key invalid or expired");
+    throw new ApolloApiError(res.status, apolloMessage.slice(0, 500));
   }
 
   const data = (await res.json()) as {

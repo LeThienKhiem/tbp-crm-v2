@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiSearch } from "@/services/apolloService";
+import { apiSearch, ApolloApiError } from "@/services/apolloService";
 
 /** Ensure Apollo API key is set in server context (API route). */
 function ensureApolloKey(): void {
@@ -8,20 +8,27 @@ function ensureApolloKey(): void {
   }
 }
 
+/** Only include in searchParams if the value is a non-empty string. */
+function optStr(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() !== "" ? value.trim() : undefined;
+}
+
 export async function POST(req: NextRequest) {
   try {
     ensureApolloKey();
 
     const body = await req.json().catch(() => ({}));
-    const query = typeof body.query === "string" ? body.query : undefined;
-    const jobTitle = typeof body.jobTitle === "string" ? body.jobTitle : undefined;
-    const industry = typeof body.industry === "string" ? body.industry : undefined;
-    const location = typeof body.location === "string" ? body.location : undefined;
+    const query = optStr(body.query);
+    const companyName = optStr(body.companyName ?? body.company_name);
+    const jobTitle = optStr(body.jobTitle ?? body.title);
+    const industry = optStr(body.industry);
+    const location = optStr(body.location);
     const page = typeof body.page === "number" ? body.page : 1;
     const perPage = typeof body.perPage === "number" ? Math.min(body.perPage, 25) : 25;
 
     const result = await apiSearch({
       query,
+      companyName,
       jobTitle,
       industry,
       location,
@@ -33,6 +40,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ data: result });
   } catch (err) {
+    if (err instanceof ApolloApiError) {
+      const status = err.statusCode === 422 ? 422 : err.statusCode === 400 ? 400 : err.statusCode;
+      return NextResponse.json({ error: err.message }, { status });
+    }
     const message = err instanceof Error ? err.message : "Search failed";
     const isAuth =
       message.toLowerCase().includes("api key") ||

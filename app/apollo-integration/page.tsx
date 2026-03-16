@@ -58,6 +58,7 @@ type RevealedContact = {
 
 export default function ApolloIntegrationPage() {
   const [query, setQuery] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [industry, setIndustry] = useState("");
   const [location, setLocation] = useState("");
@@ -88,6 +89,7 @@ export default function ApolloIntegrationPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: query.trim() || undefined,
+          companyName: companyName.trim() || undefined,
           jobTitle: jobTitle.trim() || undefined,
           industry: industry.trim() || undefined,
           location: location.trim() || undefined,
@@ -190,22 +192,38 @@ export default function ApolloIntegrationPage() {
             <h2 className="text-lg font-semibold text-slate-900">Lead Search</h2>
           </div>
           <p className="mb-5 text-sm text-slate-500">
-            Search by keywords and filter by job title, industry, and location.
+            Search by keywords, company name, job title, industry, and location. Leave fields blank to omit them.
           </p>
           <form onSubmit={handleSearch} className="space-y-4">
-            <div>
-              <label htmlFor="search-query" className="mb-1.5 block text-sm font-medium text-slate-700">
-                Search
-              </label>
-              <input
-                id="search-query"
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="e.g. VP Sales, logistics"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                autoComplete="off"
-              />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="search-query" className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Search (keywords)
+                </label>
+                <input
+                  id="search-query"
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="e.g. VP Sales, logistics"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label htmlFor="filter-company" className="mb-1.5 block text-sm font-medium text-slate-700">
+                  Company Name
+                </label>
+                <input
+                  id="filter-company"
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="e.g. Acme Corp"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                  autoComplete="off"
+                />
+              </div>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
