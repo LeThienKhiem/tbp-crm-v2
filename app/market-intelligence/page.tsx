@@ -381,7 +381,7 @@ export default function MarketIntelligencePage() {
               <YAxis type="number" domain={[0, 100]} tick={{ fontSize: 12 }} stroke="#64748b" />
               <Tooltip
                 cursor={{ fill: "#f1f5f9" }}
-                formatter={(value: number) => [`${value}`, "Score"]}
+                formatter={(value: any) => [`${value}`, "Score"]}
                 labelFormatter={(label) => label}
               />
               <Bar dataKey="score" name="Score" radius={[4, 4, 0, 0]} maxBarSize={48}>
