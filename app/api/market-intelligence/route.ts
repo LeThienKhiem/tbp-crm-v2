@@ -19,21 +19,20 @@ type GeminiGenerateContentResponse = {
   error?: { message?: string };
 };
 
+type TargetSegment = { segment: string; score: number };
+
 type GeminiAnalysis = {
   opportunity_level?: string;
+  target_segments?: TargetSegment[];
   sales_action_plan?: string[];
 };
 
-function parseGeminiJson(text: string): GeminiAnalysis | null {
-  const trimmed = text.trim();
-  const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return null;
-  try {
-    return JSON.parse(jsonMatch[0]) as GeminiAnalysis;
-  } catch {
-    return null;
-  }
-}
+const DEFAULT_TARGET_SEGMENTS: TargetSegment[] = [
+  { segment: "Aftermarket Distributors", score: 0 },
+  { segment: "Trailer OEMs", score: 0 },
+  { segment: "Fleet Operators", score: 0 },
+  { segment: "Class 8 OEMs", score: 0 },
+];
 
 function normalizeOpportunityLevel(s: string | undefined): "High" | "Medium" | "Low" {
   if (!s || typeof s !== "string") return "Medium";
@@ -205,27 +204,34 @@ export async function GET(req: NextRequest) {
       })
       .join("\n");
 
-    const prompt = `You are a B2B Sales Strategist for TBP Auto, focusing on penetrating the US market. Analyze these news articles about "${topic}". Filter out noise and identify the top 3 Sales Triggers specifically relevant to the USA or North American market. If an article is totally irrelevant, ignore it.
+    const prompt = `You are a B2B Sales Director for TBP Auto, exporting Brake Drums to the US. Based on these news articles: ${headlines}
 
-${headlines}
+Score the current sales opportunity (0 to 100) for these 4 specific customer segments: "Aftermarket Distributors", "Trailer OEMs", "Fleet Operators", "Class 8 OEMs".
 
-Provide a JSON response with exactly two keys:
-- "opportunity_level": choose strictly one of "High", "Medium", or "Low" based on B2B sales opportunity from this news.
-- "sales_action_plan": an array of exactly 3 actionable bullet points (strings) for the tactical action plan. No other keys or markdown.`;
+Create a JSON response with:
+- "opportunity_level": strictly one of "High", "Medium", or "Low".
+- "target_segments": an array of exactly 4 objects, each with "segment" (string, one of the 4 segment names above) and "score" (number 0-100). Include all 4 segments.
+- "sales_action_plan": an array of exactly 3 highly specific, actionable strings on how to pitch Brake Drums to the highest-scoring segment.
+
+Keep the action plan bullet points under 15 words each. Be extremely concise.
+
+CRITICAL: You must return ONLY raw, valid JSON. Do NOT wrap the JSON in markdown blocks (no \`\`\`json). Do not add any conversational text.`;
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`;
     console.log("Fetching Gemini...");
 
+    const body = JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        maxOutputTokens: 2000,
+        temperature: 0.2,
+      },
+    });
     const geminiRes = await fetch(geminiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 1024,
-        },
-      }),
+      body,
     });
 
     if (!geminiRes.ok) {
@@ -240,11 +246,44 @@ Provide a JSON response with exactly two keys:
       throw new Error(geminiData.error.message ?? "Gemini request failed");
     }
 
-    const text =
-      geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-    const analysis = parseGeminiJson(text);
+    const rawText = (geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "").trim();
 
+    const safeFallback: GeminiAnalysis = {
+      opportunity_level: "Medium",
+      target_segments: [
+        { segment: "Aftermarket Distributors", score: 50 },
+        { segment: "Trailer OEMs", score: 50 },
+        { segment: "Fleet Operators", score: 50 },
+        { segment: "Class 8 OEMs", score: 50 },
+      ],
+      sales_action_plan: ["System is currently analyzing live data. Please check back shortly."],
+    };
+
+    let parsedAI: GeminiAnalysis;
+    try {
+      parsedAI = JSON.parse(rawText) as GeminiAnalysis;
+    } catch {
+      console.error("Failed to parse Gemini JSON. Raw text was:", rawText);
+      parsedAI = safeFallback;
+    }
+
+    const analysis = parsedAI;
     const opportunity_level = normalizeOpportunityLevel(analysis?.opportunity_level);
+    const rawSegments = analysis?.target_segments ?? [];
+    const parsed =
+      Array.isArray(rawSegments) && rawSegments.length > 0
+        ? rawSegments
+            .filter((s) => s && typeof s.segment === "string" && typeof s.score === "number")
+            .map((s) => ({
+              segment: String(s.segment).trim() || "Unknown",
+              score: Math.min(100, Math.max(0, Number(s.score))),
+            }))
+        : [];
+    const bySegment = new Map(parsed.map((s) => [s.segment, s.score]));
+    const target_segments = DEFAULT_TARGET_SEGMENTS.map((d) => ({
+      segment: d.segment,
+      score: bySegment.get(d.segment) ?? d.score,
+    }));
     const sales_action_plan = Array.isArray(analysis?.sales_action_plan)
       ? analysis.sales_action_plan.slice(0, 3).filter((s) => typeof s === "string")
       : [];
@@ -261,6 +300,7 @@ Provide a JSON response with exactly two keys:
 
     return NextResponse.json({
       opportunity_level,
+      target_segments,
       sales_action_plan,
       articles: mappedArticles,
     });

@@ -17,14 +17,24 @@ import {
   Square,
   Search,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
 
 const CUSTOM_OPTION = "custom";
 
 const TOPIC_OPTIONS = [
-  { label: "🇺🇸 US Supply Chain Shifts & Shortages", value: "automotive supply chain" },
-  { label: "🏭 US Factory Expansions & Investments", value: "automotive factory investment" },
-  { label: "💻 US Auto Tech & Transformation", value: "automotive technology" },
-  { label: "👔 US Auto Leadership Changes", value: "automotive CEO" },
+  { label: "🚛 US Commercial Truck Manufacturing", value: "heavy duty truck manufacturing US OR commercial vehicle production" },
+  { label: "🏭 US Iron Casting & Supply Chain", value: "cast iron supply chain US OR auto parts foundry shortage" },
+  { label: "⚙️ US Heavy-Duty Aftermarket", value: "commercial auto parts aftermarket US OR heavy duty fleet maintenance" },
+  { label: "👔 US Auto OEM Procurement", value: "automotive procurement director hired US OR OEM supply chain strategy" },
   { label: "Custom Topic...", value: "custom" },
 ];
 
@@ -42,11 +52,21 @@ type Article = {
   image?: string | null;
 };
 
+type TargetSegment = { segment: string; score: number };
+
 type ApiResponse = {
   opportunity_level: string;
+  target_segments?: TargetSegment[];
   sales_action_plan: string[];
   articles: Article[];
 };
+
+const DEFAULT_TARGET_SEGMENTS: TargetSegment[] = [
+  { segment: "Aftermarket Distributors", score: 0 },
+  { segment: "Trailer OEMs", score: 0 },
+  { segment: "Fleet Operators", score: 0 },
+  { segment: "Class 8 OEMs", score: 0 },
+];
 
 const OPPORTUNITY_VARIANT_MAP: Record<string, OpportunityVariant> = {
   High: "high",
@@ -173,6 +193,7 @@ export default function MarketIntelligencePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [checkedPlan, setCheckedPlan] = useState<Record<number, boolean>>({});
+  const [targetSegments, setTargetSegments] = useState<TargetSegment[]>(DEFAULT_TARGET_SEGMENTS);
 
   const fetchData = useCallback(async (requestedTopic: string) => {
     const topicToSend = requestedTopic.trim();
@@ -193,6 +214,14 @@ export default function MarketIntelligencePage() {
         json.opportunity_level != null && String(json.opportunity_level).trim()
           ? String(json.opportunity_level).trim()
           : "Evaluating...";
+      const segments =
+        Array.isArray(json.target_segments) && json.target_segments.length > 0
+          ? json.target_segments.map((s: { segment?: string; score?: number }) => ({
+              segment: typeof s.segment === "string" ? s.segment : "Unknown",
+              score: typeof s.score === "number" ? Math.min(100, Math.max(0, s.score)) : 0,
+            }))
+          : DEFAULT_TARGET_SEGMENTS;
+      setTargetSegments(segments.length > 0 ? segments : DEFAULT_TARGET_SEGMENTS);
       setData({
         opportunity_level: opportunityLevel,
         sales_action_plan: Array.isArray(json.sales_action_plan) ? json.sales_action_plan : [],
@@ -219,6 +248,9 @@ export default function MarketIntelligencePage() {
       fetchData(selectedTopic);
     }
   }, [topic, fetchData]);
+
+  const barColor = (score: number) =>
+    score > 75 ? "#dc2626" : score > 50 ? "#ea580c" : "#2563eb";
 
   const handleCustomSearch = () => {
     const q = customInput.trim();
@@ -336,6 +368,64 @@ export default function MarketIntelligencePage() {
             </div>
           )}
         </div>
+
+        {/* Live Buyer Segment Heatmap (AI Scored) */}
+        <section className="mb-8 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
+          <h2 className="mb-4 text-lg font-bold text-slate-900">
+            🔥 Live Buyer Segment Heatmap (AI Scored)
+          </h2>
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={targetSegments} margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="segment" tick={{ fontSize: 11 }} stroke="#64748b" angle={-20} textAnchor="end" />
+              <YAxis type="number" domain={[0, 100]} tick={{ fontSize: 12 }} stroke="#64748b" />
+              <Tooltip
+                cursor={{ fill: "#f1f5f9" }}
+                formatter={(value: number) => [`${value}`, "Score"]}
+                labelFormatter={(label) => label}
+              />
+              <Bar dataKey="score" name="Score" radius={[4, 4, 0, 0]} maxBarSize={48}>
+                {targetSegments.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={barColor(entry.score)} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500">
+            <span className="flex items-center gap-1.5">
+              <span className="h-3 w-4 rounded bg-red-500" /> Hot (75+)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-3 w-4 rounded bg-orange-500" /> Warm (51–75)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-3 w-4 rounded bg-blue-500" /> Cool (0–50)
+            </span>
+          </div>
+          <div className="mt-4 rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
+            <h4 className="mb-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
+              Target Segment Glossary:
+            </h4>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <p className="text-xs text-gray-600 dark:text-gray-300">
+                <span className="font-medium text-slate-700 dark:text-slate-300">Aftermarket Distributors:</span>{" "}
+                Wholesale distributors of replacement parts. (High volume, recurring Brake Drum purchases).
+              </p>
+              <p className="text-xs text-gray-600 dark:text-gray-300">
+                <span className="font-medium text-slate-700 dark:text-slate-300">Trailer OEMs:</span>{" "}
+                Commercial trailer manufacturers. (Bulk purchases for new trailer assemblies).
+              </p>
+              <p className="text-xs text-gray-600 dark:text-gray-300">
+                <span className="font-medium text-slate-700 dark:text-slate-300">Fleet Operators:</span>{" "}
+                Large logistics companies managing their own trucks. (Direct buyers for in-house maintenance).
+              </p>
+              <p className="text-xs text-gray-600 dark:text-gray-300">
+                <span className="font-medium text-slate-700 dark:text-slate-300">Class 8 OEMs:</span>{" "}
+                Heavy-duty truck manufacturers like Freightliner or Volvo. (Tier 1 enterprise contracts).
+              </p>
+            </div>
+          </div>
+        </section>
 
         {/* Loading: Gemini analyzing state */}
         {loading && (
