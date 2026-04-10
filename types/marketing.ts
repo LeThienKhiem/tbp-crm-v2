@@ -27,6 +27,9 @@ export interface Contact {
 export type SequenceStatus = "draft" | "pending_approval" | "approved" | "active" | "paused" | "completed";
 export type StepType = "email" | "wait" | "condition";
 
+export type SequenceTypeId = "cold_instantly" | "priority_lemlist" | "nurture_activecampaign";
+export type TargetSegment = "distributors" | "private_label" | "top_50_priority" | "custom";
+
 export interface SequenceStep {
   id: string;
   order: number;
@@ -44,6 +47,10 @@ export interface Sequence {
   steps: SequenceStep[];
   status: SequenceStatus;
   send_from_domain: "outreach.tbpauto.com";
+  sequence_type: SequenceTypeId;
+  target_segments: TargetSegment[];
+  target_states: string[];
+  estimated_contacts: number;
   created_by: string;
   approved_by?: string | null;
   approved_at?: string | null;
@@ -104,6 +111,15 @@ export interface PipelineLead {
 // ── Approval types ────────────────────────────────────────────
 export type ApprovalType = "contact" | "sequence" | "campaign";
 
+export interface ApprovalSequenceDetail {
+  sequence_type: SequenceTypeId;
+  target_segments: TargetSegment[];
+  target_states: string[];
+  estimated_contacts: number;
+  send_from_domain: string;
+  steps: { type: StepType; subject?: string; body?: string; wait_days?: number; condition?: string }[];
+}
+
 export interface ApprovalItem {
   id: string;
   type: ApprovalType;
@@ -115,6 +131,7 @@ export interface ApprovalItem {
   status: "pending" | "approved" | "rejected";
   reviewed_at?: string | null;
   reviewer_notes?: string | null;
+  sequence_detail?: ApprovalSequenceDetail | null;
 }
 
 // ── Analytics types ───────────────────────────────────────────

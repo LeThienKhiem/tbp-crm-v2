@@ -6,6 +6,10 @@ const MOCK_SEQUENCES: Sequence[] = [
     id: "seq1",
     name: "Cold Outreach — Fleet Managers",
     description: "Initial cold outreach sequence targeting fleet managers and maintenance directors at major US trucking companies.",
+    sequence_type: "cold_instantly",
+    target_segments: ["distributors"],
+    target_states: ["TX", "CA", "OH", "PA", "IL"],
+    estimated_contacts: 120,
     steps: [
       { id: "s1a", order: 1, type: "email", subject: "TBP Auto — Premium Brake Drums for US Fleets", body: "Hi {{first_name}},\n\nI noticed {{company}} operates a significant fleet across the US. At TBP Auto, we manufacture premium brake drums that meet FMVSS 121 standards at competitive pricing.\n\nWould you be open to a quick call this week to discuss your brake drum sourcing?\n\nBest,\nThomas Nguyen\nTBP Auto" },
       { id: "s1b", order: 2, type: "wait", wait_days: 3 },
@@ -25,6 +29,10 @@ const MOCK_SEQUENCES: Sequence[] = [
     id: "seq2",
     name: "Follow-up — Trade Show Leads",
     description: "Follow-up sequence for contacts met at HDAW and AAPEX trade shows.",
+    sequence_type: "priority_lemlist",
+    target_segments: ["top_50_priority"],
+    target_states: ["TN", "GA", "NC", "KY"],
+    estimated_contacts: 45,
     steps: [
       { id: "s2a", order: 1, type: "email", subject: "Great meeting you at HDAW, {{first_name}}", body: "Hi {{first_name}},\n\nIt was great connecting at HDAW last week. As discussed, TBP Auto manufactures high-quality brake drums with direct US shipping from our Vietnam facility.\n\nI've attached our latest catalog. Would you like to schedule a follow-up call?\n\nBest,\nThomas" },
       { id: "s2b", order: 2, type: "wait", wait_days: 5 },
@@ -42,6 +50,10 @@ const MOCK_SEQUENCES: Sequence[] = [
     id: "seq3",
     name: "Re-engagement — Dormant Contacts",
     description: "Re-engage contacts who haven't responded in 30+ days with fresh value propositions.",
+    sequence_type: "nurture_activecampaign",
+    target_segments: ["distributors", "private_label"],
+    target_states: ["TX", "GA", "NC", "IN", "MI"],
+    estimated_contacts: 78,
     steps: [
       { id: "s3a", order: 1, type: "email", subject: "New: TBP Auto 2025 product line + US warehouse update", body: "Hi {{first_name}},\n\nHope you're doing well. Wanted to share some exciting news — TBP Auto has expanded our 2025 brake drum line and now offers local US warehouse fulfillment for faster delivery.\n\nWould this change the equation for {{company}}?\n\nBest,\nThomas" },
       { id: "s3b", order: 2, type: "wait", wait_days: 7 },

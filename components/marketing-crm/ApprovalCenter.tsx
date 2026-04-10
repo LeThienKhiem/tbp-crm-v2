@@ -3,17 +3,28 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CheckCircle,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  GitBranch,
   Loader2,
+  Lock,
   Mail,
+  MapPin,
   Megaphone,
   User,
   Users,
   X,
   XCircle,
+  Zap,
 } from "lucide-react";
-import type { ApprovalItem, ApprovalType } from "@/types/marketing";
+import type {
+  ApprovalItem,
+  ApprovalType,
+  SequenceTypeId,
+} from "@/types/marketing";
 
-/* ── Type config ───────────────────────────────────────────────── */
+/* ── Config ───────────────────────────────────────────────────── */
 const TYPE_META: Record<ApprovalType, { label: string; Icon: typeof User }> = {
   contact: { label: "Contact", Icon: User },
   sequence: { label: "Sequence", Icon: Mail },
@@ -27,40 +38,97 @@ const FILTER_TABS: { value: ApprovalType | "all"; label: string }[] = [
   { value: "campaign", label: "Campaigns" },
 ];
 
+const SEQ_TYPE_META: Record<SequenceTypeId, { label: string; tool: string; badge: string }> = {
+  cold_instantly: { label: "Cold Outreach", tool: "Instantly.ai", badge: "bg-blue-50 text-blue-700 ring-blue-300" },
+  priority_lemlist: { label: "Priority Outreach", tool: "Lemlist", badge: "bg-purple-50 text-purple-700 ring-purple-300" },
+  nurture_activecampaign: { label: "Warm Nurture", tool: "ActiveCampaign", badge: "bg-green-50 text-green-700 ring-green-300" },
+};
+
+const SEGMENT_LABELS: Record<string, string> = {
+  distributors: "Distributors",
+  private_label: "Private Label",
+  top_50_priority: "Top 50 Priority",
+  custom: "Custom List",
+};
+
 /* ── Toast ─────────────────────────────────────────────────────── */
-interface Toast {
-  message: string;
-  type: "success" | "error";
-}
+interface Toast { message: string; type: "success" | "error"; }
 
-function ToastNotification({
-  toast,
-  onClose,
-}: {
-  toast: Toast;
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    const t = setTimeout(onClose, 3500);
-    return () => clearTimeout(t);
-  }, [onClose]);
-
+function ToastNotification({ toast, onClose }: { toast: Toast; onClose: () => void }) {
+  useEffect(() => { const t = setTimeout(onClose, 3500); return () => clearTimeout(t); }, [onClose]);
   return (
     <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-lg">
-      {toast.type === "success" ? (
-        <CheckCircle className="h-5 w-5 text-green-600" />
-      ) : (
-        <XCircle className="h-5 w-5 text-red-600" />
-      )}
-      <span className="text-sm font-medium text-slate-700">
-        {toast.message}
-      </span>
-      <button
-        onClick={onClose}
-        className="ml-2 text-slate-400 hover:text-slate-600"
-      >
-        <X className="h-4 w-4" />
+      {toast.type === "success" ? <CheckCircle className="h-5 w-5 text-green-600" /> : <XCircle className="h-5 w-5 text-red-600" />}
+      <span className="text-sm font-medium text-slate-700">{toast.message}</span>
+      <button onClick={onClose} className="ml-2 text-slate-400 hover:text-slate-600"><X className="h-4 w-4" /></button>
+    </div>
+  );
+}
+
+/* ── Sequence Detail Panel ─────────────────────────────────────── */
+function SequenceApprovalDetail({ item }: { item: ApprovalItem }) {
+  const [expanded, setExpanded] = useState(false);
+  const detail = item.sequence_detail;
+  if (!detail) return null;
+
+  const meta = SEQ_TYPE_META[detail.sequence_type] ?? SEQ_TYPE_META.cold_instantly;
+
+  return (
+    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+      {/* Type + Tool */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${meta.badge}`}>
+          <Zap size={10} /> {meta.label} — {meta.tool}
+        </span>
+        <span className="flex items-center gap-1 text-xs text-slate-500">
+          <Lock size={10} className="text-amber-500" /> outreach.tbpauto.com
+        </span>
+      </div>
+
+      {/* Targeting */}
+      <div className="mb-3 grid gap-2 text-xs sm:grid-cols-3">
+        <div className="flex items-center gap-1.5 text-slate-600">
+          <Users size={12} className="text-slate-400" />
+          <span className="font-medium">{detail.estimated_contacts} contacts</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-slate-600">
+          <MapPin size={12} className="text-slate-400" />
+          <span>{detail.target_segments.map((s) => SEGMENT_LABELS[s] ?? s).join(", ")}</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-slate-600">
+          <MapPin size={12} className="text-slate-400" />
+          <span>{detail.target_states.join(", ")}</span>
+        </div>
+      </div>
+
+      {/* Steps preview */}
+      <button onClick={() => setExpanded(!expanded)}
+        className="mb-2 flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">
+        {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        {expanded ? "Hide" : "Preview"} {detail.steps.length} steps
       </button>
+
+      {expanded && (
+        <div className="space-y-2">
+          {detail.steps.map((step, idx) => (
+            <div key={idx} className="flex items-start gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+              {step.type === "email" && <Mail size={14} className="mt-0.5 shrink-0 text-blue-500" />}
+              {step.type === "wait" && <Clock size={14} className="mt-0.5 shrink-0 text-amber-500" />}
+              {step.type === "condition" && <GitBranch size={14} className="mt-0.5 shrink-0 text-purple-500" />}
+              <div className="min-w-0">
+                {step.type === "email" && (
+                  <>
+                    <p className="truncate text-xs font-medium text-slate-800">{step.subject || "(no subject)"}</p>
+                    <p className="line-clamp-2 text-xs text-slate-500">{step.body?.slice(0, 120)}...</p>
+                  </>
+                )}
+                {step.type === "wait" && <p className="text-xs text-slate-600">Wait {step.wait_days} days</p>}
+                {step.type === "condition" && <p className="text-xs text-slate-600">Condition: {step.condition?.replace(/_/g, " ")}</p>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -70,15 +138,11 @@ export default function ApprovalCenter() {
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<ApprovalType | "all">("all");
-  const [reviewItem, setReviewItem] = useState<{
-    item: ApprovalItem;
-    action: "approve" | "reject";
-  } | null>(null);
+  const [reviewItem, setReviewItem] = useState<{ item: ApprovalItem; action: "approve" | "reject" } | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
 
-  /* ── Fetch approvals ──────────────────────────────────────────── */
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -96,12 +160,9 @@ export default function ApprovalCenter() {
       }
     }
     load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
-  /* ── Derived data ─────────────────────────────────────────────── */
   const counts = useMemo(() => {
     const c = { contact: 0, sequence: 0, campaign: 0 };
     for (const a of approvals) c[a.type]++;
@@ -109,46 +170,25 @@ export default function ApprovalCenter() {
   }, [approvals]);
 
   const filtered = useMemo(
-    () =>
-      filterType === "all"
-        ? approvals
-        : approvals.filter((a) => a.type === filterType),
+    () => filterType === "all" ? approvals : approvals.filter((a) => a.type === filterType),
     [approvals, filterType],
   );
 
-  /* ── Actions ──────────────────────────────────────────────────── */
-  const openReview = (item: ApprovalItem, action: "approve" | "reject") => {
-    setReviewItem({ item, action });
-    setReviewNotes("");
-  };
-
-  const closeReview = () => {
-    setReviewItem(null);
-    setReviewNotes("");
-  };
+  const openReview = (item: ApprovalItem, action: "approve" | "reject") => { setReviewItem({ item, action }); setReviewNotes(""); };
+  const closeReview = () => { setReviewItem(null); setReviewNotes(""); };
 
   const confirmReview = useCallback(async () => {
     if (!reviewItem) return;
     setSubmitting(true);
     try {
-      const res = await fetch(
-        `/api/marketing-crm/approvals/${reviewItem.item.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status: reviewItem.action === "approve" ? "approved" : "rejected",
-            reviewer_notes: reviewNotes || null,
-          }),
-        },
-      );
-      if (!res.ok) throw new Error("Request failed");
-
-      setApprovals((prev) => prev.filter((a) => a.id !== reviewItem.item.id));
-      setToast({
-        message: `${reviewItem.item.title} ${reviewItem.action === "approve" ? "approved" : "rejected"}`,
-        type: "success",
+      const res = await fetch(`/api/marketing-crm/approvals/${reviewItem.item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: reviewItem.action === "approve" ? "approved" : "rejected", reviewer_notes: reviewNotes || null }),
       });
+      if (!res.ok) throw new Error("Request failed");
+      setApprovals((prev) => prev.filter((a) => a.id !== reviewItem.item.id));
+      setToast({ message: `${reviewItem.item.title} ${reviewItem.action === "approve" ? "approved" : "rejected"}`, type: "success" });
       closeReview();
     } catch {
       setToast({ message: "Something went wrong. Please try again.", type: "error" });
@@ -157,23 +197,18 @@ export default function ApprovalCenter() {
     }
   }, [reviewItem, reviewNotes]);
 
-  /* ── Stat cards config ────────────────────────────────────────── */
   const statCards: { label: string; count: number; Icon: typeof Users }[] = [
     { label: "Pending Contacts", count: counts.contact, Icon: Users },
     { label: "Pending Sequences", count: counts.sequence, Icon: Mail },
     { label: "Pending Campaigns", count: counts.campaign, Icon: Megaphone },
   ];
 
-  /* ── Render ───────────────────────────────────────────────────── */
   return (
     <div className="space-y-6">
       {/* Summary stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {statCards.map((s) => (
-          <div
-            key={s.label}
-            className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-          >
+          <div key={s.label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
                 <s.Icon className="h-5 w-5 text-blue-600" />
@@ -191,20 +226,10 @@ export default function ApprovalCenter() {
       <div className="flex items-center gap-2">
         {FILTER_TABS.map((tab) => {
           const isActive = filterType === tab.value;
-          const count =
-            tab.value === "all"
-              ? approvals.length
-              : counts[tab.value as ApprovalType];
+          const count = tab.value === "all" ? approvals.length : counts[tab.value as ApprovalType];
           return (
-            <button
-              key={tab.value}
-              onClick={() => setFilterType(tab.value)}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                isActive
-                  ? "bg-blue-50 text-blue-700"
-                  : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
+            <button key={tab.value} onClick={() => setFilterType(tab.value)}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${isActive ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-100"}`}>
               {tab.label} ({count})
             </button>
           );
@@ -219,111 +244,48 @@ export default function ApprovalCenter() {
       ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm">
           <CheckCircle className="mx-auto mb-3 h-10 w-10 text-green-500" />
-          <p className="text-sm font-medium text-slate-700">
-            No pending approvals
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            All items have been reviewed.
-          </p>
+          <p className="text-sm font-medium text-slate-700">No pending approvals</p>
+          <p className="mt-1 text-xs text-slate-500">All items have been reviewed.</p>
         </div>
       ) : (
-        <>
-          {/* Desktop table */}
-          <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:block">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Title</th>
-                  <th className="px-4 py-3">Submitted By</th>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filtered.map((item) => {
-                  const meta = TYPE_META[item.type];
-                  return (
-                    <tr key={item.id} className="hover:bg-slate-50/60">
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-1.5 text-sm text-slate-700">
-                          <meta.Icon className="h-4 w-4 text-slate-400" />
-                          {meta.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm font-medium text-slate-900">
-                        {item.title}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">
-                        {item.submitted_by}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-500">
-                        {new Date(item.submitted_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => openReview(item, "approve")}
-                            className="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => openReview(item, "reject")}
-                            className="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile cards */}
-          <div className="space-y-3 md:hidden">
-            {filtered.map((item) => {
-              const meta = TYPE_META[item.type];
-              return (
-                <div
-                  key={item.id}
-                  className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-                >
-                  <div className="mb-2 flex items-center gap-2">
-                    <meta.Icon className="h-4 w-4 text-slate-400" />
-                    <span className="text-xs font-medium uppercase text-slate-500">
-                      {meta.label}
-                    </span>
+        <div className="space-y-4">
+          {filtered.map((item) => {
+            const meta = TYPE_META[item.type];
+            return (
+              <div key={item.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                {/* Header row */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-center gap-2">
+                      <meta.Icon className="h-4 w-4 text-slate-400" />
+                      <span className="text-xs font-medium uppercase tracking-wide text-slate-500">{meta.label}</span>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                    <p className="mt-0.5 text-xs text-slate-500">{item.description}</p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Submitted by {item.submitted_by} &middot; {new Date(item.submitted_at).toLocaleDateString()}
+                    </p>
                   </div>
-                  <p className="text-sm font-medium text-slate-900">
-                    {item.title}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {item.submitted_by} &middot;{" "}
-                    {new Date(item.submitted_at).toLocaleDateString()}
-                  </p>
-                  <div className="mt-3 flex items-center gap-2">
-                    <button
-                      onClick={() => openReview(item, "approve")}
-                      className="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700"
-                    >
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button onClick={() => openReview(item, "approve")}
+                      className="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700">
                       Approve
                     </button>
-                    <button
-                      onClick={() => openReview(item, "reject")}
-                      className="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
-                    >
+                    <button onClick={() => openReview(item, "reject")}
+                      className="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700">
                       Reject
                     </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </>
+
+                {/* Rich sequence detail */}
+                {item.type === "sequence" && item.sequence_detail && (
+                  <SequenceApprovalDetail item={item} />
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {/* Review modal */}
@@ -331,8 +293,7 @@ export default function ApprovalCenter() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-slate-900">
-              {reviewItem.action === "approve" ? "Approve" : "Reject"}{" "}
-              {reviewItem.item.title}
+              {reviewItem.action === "approve" ? "Approve" : "Reject"} {reviewItem.item.title}
             </h3>
             <p className="mt-1 text-sm text-slate-500">
               {reviewItem.action === "approve"
@@ -340,45 +301,31 @@ export default function ApprovalCenter() {
                 : "This item will be rejected. Please provide a reason below."}
             </p>
 
-            <label className="mt-4 block text-sm font-medium text-slate-700">
-              Notes (optional)
-            </label>
-            <textarea
-              value={reviewNotes}
-              onChange={(e) => setReviewNotes(e.target.value)}
-              rows={3}
-              placeholder="Add any notes..."
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
+            {/* Show sequence detail in review modal too */}
+            {reviewItem.item.type === "sequence" && reviewItem.item.sequence_detail && (
+              <div className="mt-3">
+                <SequenceApprovalDetail item={reviewItem.item} />
+              </div>
+            )}
+
+            <label className="mt-4 block text-sm font-medium text-slate-700">Notes (optional)</label>
+            <textarea value={reviewNotes} onChange={(e) => setReviewNotes(e.target.value)}
+              rows={3} placeholder="Add any notes..."
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
 
             <div className="mt-5 flex items-center justify-end gap-3">
-              <button
-                onClick={closeReview}
-                disabled={submitting}
-                className="rounded-lg px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
-              >
-                Cancel
-              </button>
+              <button onClick={closeReview} disabled={submitting}
+                className="rounded-lg px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100">Cancel</button>
               {reviewItem.action === "approve" ? (
-                <button
-                  onClick={confirmReview}
-                  disabled={submitting}
-                  className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
-                >
-                  {submitting && (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  )}
+                <button onClick={confirmReview} disabled={submitting}
+                  className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50">
+                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
                   Confirm Approve
                 </button>
               ) : (
-                <button
-                  onClick={confirmReview}
-                  disabled={submitting}
-                  className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-                >
-                  {submitting && (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  )}
+                <button onClick={confirmReview} disabled={submitting}
+                  className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50">
+                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
                   Confirm Reject
                 </button>
               )}
@@ -387,10 +334,7 @@ export default function ApprovalCenter() {
         </div>
       )}
 
-      {/* Toast */}
-      {toast && (
-        <ToastNotification toast={toast} onClose={() => setToast(null)} />
-      )}
+      {toast && <ToastNotification toast={toast} onClose={() => setToast(null)} />}
     </div>
   );
 }
