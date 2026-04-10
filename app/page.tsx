@@ -1,9 +1,9 @@
 import Link from "next/link";
 import {
-  BarChart3,
   Compass,
   Globe,
   LayoutTemplate,
+  Mail,
   RefreshCcw,
   Ship,
   Truck,
@@ -34,10 +34,13 @@ const modules = [
   },
   {
     id: "03",
-    title: "Marketing Analytics",
-    description: "Campaign performance, funnel tracking, and ROI dashboards.",
-    status: "Coming Soon",
-    icon: BarChart3,
+    title: "Marketing CRM System",
+    description: "Full B2B outreach pipeline — contact management, email sequences, campaign tracking, and lead pipeline for US dealer acquisition.",
+    status: "Active",
+    href: "/marketing-crm",
+    icon: Mail,
+    ctaLabel: "View Marketing CRM →",
+    ctaHref: "/marketing-crm",
   },
   {
     id: "04",
