@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TBP Auto — Your Cost Savings Breakdown</title>
+<style>
+  /* ── Reset ─────────────────────────────────────────────── */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg-primary: #0a0a0a;
+    --bg-card: #111111;
+    --bg-card-hover: #1a1a1a;
+    --bg-elevated: #141414;
+    --red: #dc2626;
+    --red-hover: #b91c1c;
+    --red-dark: #991b1b;
+    --red-tint: rgba(220, 38, 38, 0.06);
+    --red-tint-strong: rgba(220, 38, 38, 0.10);
+    --text-primary: #ffffff;
+    --text-secondary: #a1a1aa;
+    --text-tertiary: #71717a;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.15);
+    --success: #2ecc71;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'Space Mono', 'Courier New', monospace;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .email-wrapper {
+    max-width: 640px;
+    margin: 0 auto;
+    background: var(--bg-primary);
+  }
+
+  /* ── Header ────────────────────────────────────────────── */
+  .header {
+    padding: 32px 40px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+  }
+
+  .logo-mark {
+    width: 36px;
+    height: 36px;
+    background: var(--red);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 14px;
+    color: white;
+  }
+
+  .logo-text {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--text-primary);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .header-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--red);
+    background: var(--red-tint-strong);
+    padding: 4px 10px;
+    border-radius: 9999px;
+    border: 1px solid rgba(220, 38, 38, 0.2);
+  }
+
+  /* ── Context bar ───────────────────────────────────────── */
+  .context-bar {
+    padding: 14px 40px;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    animation: fadeIn 0.5s ease-out both;
+  }
+
+  .context-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--success);
+    border-radius: 50%;
+    animation: blink 2s ease-in-out infinite;
+  }
+
+  .context-bar strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  /* ── Hero ───────────────────────────────────────────────── */
+  .hero {
+    padding: 48px 40px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle at top right, rgba(220, 38, 38, 0.04) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-greeting {
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    animation: fadeSlideUp 0.6s ease-out both;
+  }
+
+  .hero-greeting .name {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .hero h1 {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    margin-bottom: 14px;
+    animation: fadeSlideUp 0.6s ease-out 0.1s both;
+  }
+
+  .hero-desc {
+    font-size: 15px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    max-width: 520px;
+    animation: fadeSlideUp 0.6s ease-out 0.2s both;
+  }
+
+  .hero-desc strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  /* ── Savings Calculator ────────────────────────────────── */
+  .calc-section {
+    padding: 0 40px 40px;
+    animation: fadeSlideUp 0.6s ease-out 0.3s both;
+  }
+
+  .calc-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  .calc-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .calc-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .calc-title::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: var(--red);
+    border-radius: 2px;
+  }
+
+  .calc-badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--success);
+    background: rgba(46, 204, 113, 0.08);
+    border: 1px solid rgba(46, 204, 113, 0.2);
+    padding: 3px 8px;
+    border-radius: 9999px;
+    text-transform: uppercase;
+  }
+
+  .calc-body {
+    padding: 0;
+  }
+
+  .calc-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+    transition: background 0.15s;
+  }
+
+  .calc-row:last-child { border-bottom: none; }
+
+  .calc-row:hover { background: rgba(255,255,255,0.02); }
+
+  .calc-row.highlight {
+    background: var(--red-tint);
+    border-bottom: none;
+  }
+
+  .calc-row-label {
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  .calc-row-label .detail {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    display: block;
+    margin-top: 2px;
+  }
+
+  .calc-row-value {
+    font-family: var(--font-mono);
+    font-size: 16px;
+    font-weight: 700;
+    text-align: right;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+
+  .calc-row-value.strike {
+    text-decoration: line-through;
+    color: var(--text-tertiary);
+    font-weight: 400;
+  }
+
+  .calc-row-value.savings {
+    color: var(--success);
+    font-size: 22px;
+  }
+
+  .calc-row-value.red {
+    color: var(--red);
+  }
+
+  /* ── Comparison table ──────────────────────────────────── */
+  .compare-section {
+    padding: 0 40px 40px;
+    animation: fadeSlideUp 0.6s ease-out 0.4s both;
+  }
+
+  .compare-section .section-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .compare-section .section-label::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: var(--red);
+    border-radius: 2px;
+  }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    font-size: 13px;
+  }
+
+  .compare-table thead th {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    padding: 14px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-elevated);
+    font-weight: 400;
+  }
+
+  .compare-table thead th:last-child { text-align: center; }
+
+  .compare-table tbody td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-secondary);
+  }
+
+  .compare-table tbody tr:last-child td { border-bottom: none; }
+
+  .compare-table tbody td:first-child {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .compare-table tbody td:last-child { text-align: center; }
+
+  .badge-yes {
+    display: inline-block;
+    background: rgba(46, 204, 113, 0.1);
+    color: var(--success);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    letter-spacing: 0.06em;
+    border: 1px solid rgba(46, 204, 113, 0.2);
+  }
+
+  .badge-no {
+    display: inline-block;
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    letter-spacing: 0.06em;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+  }
+
+  /* ── CTA Block ─────────────────────────────────────────── */
+  .cta-block {
+    margin: 0 40px 40px;
+    background: linear-gradient(135deg, var(--red-tint-strong) 0%, var(--bg-elevated) 100%);
+    border: 1px solid rgba(220, 38, 38, 0.15);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    animation: fadeSlideUp 0.6s ease-out 0.5s both;
+  }
+
+  .cta-block::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(220, 38, 38, 0.06) 0%, transparent 70%);
+  }
+
+  .cta-block h2 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+    position: relative;
+  }
+
+  .cta-block p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+    position: relative;
+  }
+
+  .cta-block .btn-primary {
+    display: inline-block;
+    background: var(--red);
+    color: #fff;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 14px;
+    padding: 14px 32px;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    transition: all 0.15s ease;
+    position: relative;
+    animation: pulse-glow 2.5s ease-in-out infinite;
+  }
+
+  .cta-block .btn-primary:hover {
+    background: var(--red-hover);
+    transform: translateY(-1px);
+  }
+
+  /* ── Message block ─────────────────────────────────────── */
+  .message-block {
+    padding: 0 40px 40px;
+    animation: fadeSlideUp 0.6s ease-out 0.6s both;
+  }
+
+  .message-inner {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+  }
+
+  .message-inner p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 12px;
+  }
+
+  .message-inner p:last-of-type { margin-bottom: 0; }
+
+  .message-inner strong { color: var(--text-primary); font-weight: 600; }
+
+  .signature {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding-top: 20px;
+    margin-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  .signature-avatar {
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, var(--red), var(--red-dark));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .signature-info { line-height: 1.4; }
+
+  .signature-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary);
+  }
+
+  .signature-title {
+    font-size: 12px;
+    color: var(--text-tertiary);
+  }
+
+  .signature-domain {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-tertiary);
+    letter-spacing: 0.02em;
+  }
+
+  /* ── Footer ────────────────────────────────────────────── */
+  .footer {
+    padding: 32px 40px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+  }
+
+  .footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 16px;
+  }
+
+  .footer-links a {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+
+  .footer-links a:hover { color: var(--text-secondary); }
+
+  .footer-legal {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    line-height: 1.6;
+    opacity: 0.7;
+  }
+
+  .footer-legal a {
+    color: var(--text-tertiary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /* ── Animations ────────────────────────────────────────── */
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.2); }
+    50% { box-shadow: 0 0 20px 4px rgba(220, 38, 38, 0.12); }
+  }
+
+  @keyframes countUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .count-anim {
+    animation: countUp 0.5s ease-out both;
+  }
+
+  .count-anim:nth-child(1) { animation-delay: 0.4s; }
+  .count-anim:nth-child(2) { animation-delay: 0.5s; }
+  .count-anim:nth-child(3) { animation-delay: 0.6s; }
+  .count-anim:nth-child(4) { animation-delay: 0.7s; }
+
+  /* ── Responsive ────────────────────────────────────────── */
+  @media (max-width: 520px) {
+    .header { padding: 24px 20px; }
+    .hero { padding: 36px 20px 32px; }
+    .hero h1 { font-size: 26px; }
+    .context-bar { padding: 12px 20px; font-size: 12px; }
+    .calc-section, .compare-section, .message-block { padding-left: 20px; padding-right: 20px; }
+    .cta-block { margin: 0 20px 32px; padding: 24px; }
+    .footer { padding: 24px 20px; }
+    .compare-table { font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="email-wrapper">
+
+  <!-- Header -->
+  <div class="header">
+    <a href="https://tbpauto.com" class="logo">
+      <div class="logo-mark">TBP</div>
+      <span class="logo-text">TBP Auto</span>
+    </a>
+    <span class="header-tag">Follow-Up</span>
+  </div>
+
+  <!-- Context bar -->
+  <div class="context-bar">
+    <span class="context-dot"></span>
+    Following up for <strong>{{first_name}}</strong> at <strong>{{company}}</strong>
+  </div>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-greeting">
+      Hi <span class="name">{{first_name}}</span>,
+    </div>
+    <h1>Your Cost Savings<br>Breakdown Is Ready.</h1>
+    <p class="hero-desc">
+      I put together a quick comparison showing what <strong>{{company}}</strong>
+      could save by switching to Vietnamese-origin brake drums. The numbers speak
+      for themselves.
+    </p>
+  </div>
+
+  <!-- Savings Calculator -->
+  <div class="calc-section">
+    <div class="calc-card">
+      <div class="calc-header">
+        <div class="calc-title">Per-Container Cost Comparison</div>
+        <span class="calc-badge">&#10003; Live Estimate</span>
+      </div>
+      <div class="calc-body">
+        <div class="calc-row count-anim">
+          <div class="calc-row-label">
+            Chinese-origin brake drums
+            <span class="detail">FOB + 446% AD/CVD duty to US</span>
+          </div>
+          <div class="calc-row-value strike">$38,400</div>
+        </div>
+        <div class="calc-row count-anim">
+          <div class="calc-row-label">
+            TBP Auto (Vietnam-origin)
+            <span class="detail">FOB Hai Phong + 0% duty to US</span>
+          </div>
+          <div class="calc-row-value">$14,200</div>
+        </div>
+        <div class="calc-row count-anim">
+          <div class="calc-row-label">
+            Ocean freight (CIF US port)
+            <span class="detail">20ft container, avg. 21-day transit</span>
+          </div>
+          <div class="calc-row-value">$2,800</div>
+        </div>
+        <div class="calc-row highlight count-anim">
+          <div class="calc-row-label" style="color: var(--text-primary); font-weight: 600;">
+            Your estimated savings per container
+          </div>
+          <div class="calc-row-value savings">$21,400</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Comparison table -->
+  <div class="compare-section">
+    <div class="section-label">Origin Comparison</div>
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Factor</th>
+          <th>China</th>
+          <th>Turkey</th>
+          <th>TBP (Vietnam)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>AD/CVD Duty</td>
+          <td style="color: var(--red);">446%+</td>
+          <td style="color: var(--red);">Under investigation</td>
+          <td><span class="badge-yes">0%</span></td>
+        </tr>
+        <tr>
+          <td>Iron Grade</td>
+          <td>G3000 &ndash; G3500</td>
+          <td>G3000 &ndash; G3500</td>
+          <td><span class="badge-yes">G3500</span></td>
+        </tr>
+        <tr>
+          <td>FMVSS 121</td>
+          <td><span class="badge-yes">Yes</span></td>
+          <td><span class="badge-yes">Yes</span></td>
+          <td><span class="badge-yes">Yes</span></td>
+        </tr>
+        <tr>
+          <td>ISO Certified</td>
+          <td>Varies</td>
+          <td>Varies</td>
+          <td><span class="badge-yes">Triple ISO</span></td>
+        </tr>
+        <tr>
+          <td>Supply Risk</td>
+          <td><span class="badge-no">High</span></td>
+          <td><span class="badge-no">Medium</span></td>
+          <td><span class="badge-yes">Low</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- CTA Block -->
+  <div class="cta-block">
+    <h2>Ready to See Your Full Quote?</h2>
+    <p>I can build a custom quote for {{company}}'s top 10 brake drum part numbers in under 24 hours.</p>
+    <a href="https://tbpauto.com/contact" class="btn-primary">Schedule a 15-Min Call</a>
+  </div>
+
+  <!-- Closing message -->
+  <div class="message-block">
+    <div class="message-inner">
+      <p>
+        These savings estimates are based on current market rates and publicly
+        available duty schedules. I'm happy to run the exact numbers for
+        <strong>{{company}}</strong>'s specific part numbers and annual volumes.
+      </p>
+      <p>
+        We also offer a <strong>free sample shipment</strong> so you can
+        evaluate quality before committing to a full container order.
+      </p>
+      <div class="signature">
+        <div class="signature-avatar">TH</div>
+        <div class="signature-info">
+          <div class="signature-name">Thomas Heller</div>
+          <div class="signature-title">Founder &amp; CEO &middot; TBP Auto</div>
+          <div class="signature-domain">thomas@outreach.tbpauto.com</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-links">
+      <a href="https://tbpauto.com">Website</a>
+      <a href="https://tbpauto.com/products">Products</a>
+      <a href="https://tbpauto.com/contact">Contact</a>
+    </div>
+    <div class="footer-legal">
+      TBP Auto &middot; Hanoi, Vietnam &middot; Hung Yen Province Factory<br>
+      <a href="#">Unsubscribe</a> &middot; Sent from outreach.tbpauto.com
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

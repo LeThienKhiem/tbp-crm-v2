@@ -40,8 +40,8 @@ const FILTER_TABS: { value: ApprovalType | "all"; label: string }[] = [
 
 const SEQ_TYPE_META: Record<SequenceTypeId, { label: string; tool: string; badge: string }> = {
   cold_instantly: { label: "Cold Outreach", tool: "Instantly.ai", badge: "bg-blue-50 text-blue-700 ring-blue-300" },
-  priority_lemlist: { label: "Priority Outreach", tool: "Lemlist", badge: "bg-purple-50 text-purple-700 ring-purple-300" },
-  nurture_activecampaign: { label: "Warm Nurture", tool: "ActiveCampaign", badge: "bg-green-50 text-green-700 ring-green-300" },
+  priority_instantly: { label: "Priority Outreach", tool: "Instantly.ai", badge: "bg-blue-50 text-blue-700 ring-blue-300" },
+  nurture_instantly: { label: "Warm Nurture", tool: "Instantly.ai", badge: "bg-blue-50 text-blue-700 ring-blue-300" },
 };
 
 const SEGMENT_LABELS: Record<string, string> = {

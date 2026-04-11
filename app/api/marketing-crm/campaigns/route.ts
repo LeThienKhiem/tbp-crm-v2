@@ -1,73 +1,111 @@
-import { NextResponse } from "next/server";
-import type { Campaign } from "@/types/marketing";
+import { NextRequest, NextResponse } from "next/server";
+import * as instantly from "@/services/instantlyService";
 
-const MOCK_CAMPAIGNS: Campaign[] = [
-  {
-    id: "camp1",
-    name: "Q1 Fleet Manager Outreach",
-    sequence_id: "seq1",
-    sequence_name: "Cold Outreach — Fleet Managers",
-    platform: "instantly",
-    status: "active",
-    contact_count: 120,
-    stats: { total_sent: 340, delivered: 328, opened: 189, replied: 41, clicked: 67, bounced: 12, unsubscribed: 3 },
-    send_from: "thomas@outreach.tbpauto.com",
-    started_at: "2025-03-01T08:00:00Z",
-    completed_at: null,
-    created_at: "2025-02-28T10:00:00Z",
-    updated_at: "2025-03-12T16:00:00Z",
-  },
-  {
-    id: "camp2",
-    name: "HDAW Trade Show Follow-up",
-    sequence_id: "seq2",
-    sequence_name: "Follow-up — Trade Show Leads",
-    platform: "lemlist",
-    status: "completed",
-    contact_count: 45,
-    stats: { total_sent: 90, delivered: 88, opened: 58, replied: 14, clicked: 22, bounced: 2, unsubscribed: 1 },
-    send_from: "thomas@outreach.tbpauto.com",
-    started_at: "2025-03-05T08:00:00Z",
-    completed_at: "2025-03-15T18:00:00Z",
-    created_at: "2025-03-04T14:00:00Z",
-    updated_at: "2025-03-15T18:00:00Z",
-  },
-  {
-    id: "camp3",
-    name: "OEM Purchasing Managers — Wave 1",
-    sequence_id: "seq1",
-    sequence_name: "Cold Outreach — Fleet Managers",
-    platform: "instantly",
-    status: "sending",
-    contact_count: 85,
-    stats: { total_sent: 85, delivered: 82, opened: 34, replied: 5, clicked: 11, bounced: 3, unsubscribed: 0 },
-    send_from: "sales@outreach.tbpauto.com",
-    started_at: "2025-03-11T08:00:00Z",
-    completed_at: null,
-    created_at: "2025-03-10T09:00:00Z",
-    updated_at: "2025-03-12T10:00:00Z",
-  },
-  {
-    id: "camp4",
-    name: "Aftermarket Distributors Q2",
-    sequence_id: "seq3",
-    sequence_name: "Re-engagement — Dormant Contacts",
-    platform: "lemlist",
-    status: "draft",
-    contact_count: 60,
-    stats: { total_sent: 0, delivered: 0, opened: 0, replied: 0, clicked: 0, bounced: 0, unsubscribed: 0 },
-    send_from: "thomas@outreach.tbpauto.com",
-    started_at: null,
-    completed_at: null,
-    created_at: "2025-03-12T11:00:00Z",
-    updated_at: "2025-03-12T11:00:00Z",
-  },
-];
-
+// ── GET — list all campaigns (Instantly + analytics merged) ──
 export async function GET() {
-  return NextResponse.json({ data: MOCK_CAMPAIGNS });
+  if (!instantly.isConfigured()) {
+    return NextResponse.json({ data: [], source: "not_configured", error: "INSTANTLY_API_KEY not set" });
+  }
+
+  try {
+    const campaigns = await instantly.listCampaigns();
+    // Fetch analytics for all campaigns in one call
+    const ids = campaigns.map((c) => c.id);
+    let analyticsMap: Record<string, instantly.CampaignAnalytics> = {};
+    if (ids.length) {
+      try {
+        const analytics = await instantly.getCampaignAnalytics(undefined, ids);
+        for (const a of analytics) {
+          analyticsMap[a.campaign_id] = a;
+        }
+      } catch {
+        // Analytics may fail if no data yet — continue without
+      }
+    }
+
+    const data = campaigns.map((c) => {
+      const a = analyticsMap[c.id];
+      return {
+        id: c.id,
+        name: c.name,
+        status: c.status,
+        status_label: instantly.campaignStatusLabel(c.status),
+        daily_limit: c.daily_limit,
+        email_list: c.email_list || [],
+        schedule: c.campaign_schedule,
+        sequences: c.sequences || [],
+        stop_on_reply: c.stop_on_reply,
+        link_tracking: c.link_tracking,
+        open_tracking: c.open_tracking,
+        text_only: c.text_only,
+        created_at: c.timestamp_created || c.created_at,
+        updated_at: c.timestamp_updated || c.updated_at,
+        // Analytics
+        leads_count: a?.leads_count ?? 0,
+        contacted_count: a?.contacted_count ?? 0,
+        emails_sent: a?.emails_sent_count ?? 0,
+        opens: a?.open_count_unique ?? 0,
+        replies: a?.reply_count_unique ?? 0,
+        clicks: a?.link_click_count_unique ?? 0,
+        bounces: a?.bounced_count ?? 0,
+        unsubscribes: a?.unsubscribed_count ?? 0,
+        completed: a?.completed_count ?? 0,
+        opportunities: a?.total_opportunities ?? 0,
+        opportunity_value: a?.total_opportunity_value ?? 0,
+      };
+    });
+
+    return NextResponse.json({ data, source: "instantly" });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ data: [], source: "error", error: message }, { status: 500 });
+  }
 }
 
-export async function POST() {
-  return NextResponse.json({ data: { id: crypto.randomUUID(), status: "created" } });
+// ── POST — create a new campaign in Instantly ────────────────
+export async function POST(req: NextRequest) {
+  if (!instantly.isConfigured()) {
+    return NextResponse.json({ error: "INSTANTLY_API_KEY not set" }, { status: 503 });
+  }
+
+  try {
+    const body = await req.json();
+    const { name, sequences, email_list, daily_limit, schedule, stop_on_reply, link_tracking, open_tracking, text_only, email_gap } = body;
+
+    if (!name) {
+      return NextResponse.json({ error: "Campaign name is required" }, { status: 400 });
+    }
+
+    // Default schedule: Mon-Fri 9am-5pm CST
+    const campaign_schedule = schedule || {
+      start_date: null,
+      end_date: null,
+      schedules: [
+        {
+          name: "Business hours",
+          timing: { from: "09:00", to: "17:00" },
+          days: { "0": false, "1": true, "2": true, "3": true, "4": true, "5": true, "6": false },
+          timezone: "America/Chicago",
+        },
+      ],
+    };
+
+    const campaign = await instantly.createCampaign({
+      name,
+      sequences: sequences || [],
+      email_list: email_list || [],
+      daily_limit: daily_limit || 50,
+      stop_on_reply: stop_on_reply ?? true,
+      link_tracking: link_tracking ?? false,
+      open_tracking: open_tracking ?? true,
+      text_only: text_only ?? false,
+      email_gap: email_gap ?? 5,
+      campaign_schedule,
+    });
+
+    return NextResponse.json({ data: campaign, source: "instantly" });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

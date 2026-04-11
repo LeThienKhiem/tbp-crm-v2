@@ -9,10 +9,10 @@ const MOCK_APPROVALS: ApprovalItem[] = [
   {
     id: "apr5", type: "sequence", reference_id: "seq3",
     title: "Re-engagement — Dormant Contacts",
-    description: "4-step nurture sequence via ActiveCampaign targeting Distributors + Private Label in TX, GA, NC, IN, MI. ~78 contacts.",
+    description: "4-step nurture sequence via Instantly.ai targeting Distributors + Private Label in TX, GA, NC, IN, MI. ~78 contacts.",
     submitted_by: "Khiem", submitted_at: "2025-03-10T11:30:00Z", status: "pending", reviewed_at: null, reviewer_notes: null,
     sequence_detail: {
-      sequence_type: "nurture_activecampaign",
+      sequence_type: "nurture_instantly",
       target_segments: ["distributors", "private_label"],
       target_states: ["TX", "GA", "NC", "IN", "MI"],
       estimated_contacts: 78,
@@ -44,7 +44,7 @@ const MOCK_APPROVALS: ApprovalItem[] = [
     },
   },
   { id: "apr7", type: "campaign", reference_id: "camp_new1", title: "Q2 Fleet Manager Blitz — Instantly.ai", description: "Campaign targeting 150 fleet managers via Instantly.ai using the Cold Outreach sequence.", submitted_by: "Khiem", submitted_at: "2025-03-11T14:00:00Z", status: "pending", reviewed_at: null, reviewer_notes: null },
-  { id: "apr8", type: "campaign", reference_id: "camp_new2", title: "Trade Show Follow-up — Lemlist", description: "Campaign for 45 HDAW contacts via Lemlist using the Trade Show Follow-up sequence.", submitted_by: "Khiem", submitted_at: "2025-03-12T08:00:00Z", status: "pending", reviewed_at: null, reviewer_notes: null },
+  { id: "apr8", type: "campaign", reference_id: "camp_new2", title: "Trade Show Follow-up — Instantly.ai", description: "Campaign for 45 HDAW contacts via Instantly.ai using the Trade Show Follow-up sequence.", submitted_by: "Khiem", submitted_at: "2025-03-12T08:00:00Z", status: "pending", reviewed_at: null, reviewer_notes: null },
 ];
 
 export async function GET() {

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { Contact } from "@/types/marketing";
+import { listContacts } from "@/services/airtableService";
 
+// ── Mock fallback (used when Airtable is not configured) ─────────
 const MOCK_CONTACTS: Contact[] = [
   { id: "c1", first_name: "James", last_name: "Mitchell", email: "j.mitchell@penskefleet.com", phone: "+1-610-555-0142", company: "Penske Truck Leasing", title: "VP Fleet Procurement", industry: "Trucking & Logistics", state: "PA", city: "Reading", linkedin_url: "https://linkedin.com/in/jamesmitchell", source: "apollo_csv", status: "approved", tags: ["fleet", "high-priority"], approved_by: "Thomas", approved_at: "2025-03-01T10:00:00Z", created_at: "2025-02-28T08:00:00Z", updated_at: "2025-03-01T10:00:00Z" },
   { id: "c2", first_name: "Sarah", last_name: "Chen", email: "s.chen@rfrshipping.com", phone: "+1-305-555-0198", company: "Ryder Fleet Management", title: "Director of Parts Sourcing", industry: "Fleet Management", state: "FL", city: "Miami", linkedin_url: null, source: "apollo_csv", status: "approved", tags: ["fleet", "aftermarket"], approved_by: "Thomas", approved_at: "2025-03-02T09:00:00Z", created_at: "2025-02-28T08:30:00Z", updated_at: "2025-03-02T09:00:00Z" },
@@ -29,8 +31,46 @@ const MOCK_CONTACTS: Contact[] = [
   { id: "c25", first_name: "Paul", last_name: "Wright", email: "pwright@midwestwheel.com", phone: "+1-515-555-0164", company: "Midwest Wheel Companies", title: "Brake Products Manager", industry: "Parts Distribution", state: "IA", city: "Des Moines", linkedin_url: "https://linkedin.com/in/paulwright", source: "apollo_csv", status: "in_sequence", tags: ["aftermarket", "high-priority"], approved_by: "Thomas", approved_at: "2025-03-07T11:00:00Z", created_at: "2025-03-05T14:00:00Z", updated_at: "2025-03-09T16:00:00Z" },
 ];
 
+/** Convert Airtable record → Contact shape (tags from comma-string to array). */
+function toContact(r: { id: string; first_name: string; last_name: string; email: string; phone?: string | null; company: string; title: string; industry?: string | null; state?: string | null; city?: string | null; linkedin_url?: string | null; source: string; status: string; tags: string; apollo_id?: string | null; approved_by?: string | null; approved_at?: string | null; created_at: string; updated_at: string }): Contact {
+  return {
+    id: r.id,
+    first_name: r.first_name,
+    last_name: r.last_name,
+    email: r.email,
+    phone: r.phone,
+    company: r.company,
+    title: r.title,
+    industry: r.industry,
+    state: r.state,
+    city: r.city,
+    linkedin_url: r.linkedin_url,
+    source: (r.source as Contact["source"]) || "apollo",
+    status: (r.status as Contact["status"]) || "new",
+    tags: r.tags ? r.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
+    approved_by: r.approved_by,
+    approved_at: r.approved_at,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+  };
+}
+
 export async function GET() {
-  return NextResponse.json({ data: MOCK_CONTACTS });
+  // Try Airtable first; fall back to mock if not configured
+  try {
+    const airtableRecords = await listContacts();
+    const contacts = airtableRecords.map(toContact);
+    return NextResponse.json({ data: contacts, source: "airtable" });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    // If Airtable is simply not configured, silently fall back to mock
+    if (msg.includes("is not set")) {
+      return NextResponse.json({ data: MOCK_CONTACTS, source: "mock" });
+    }
+    console.error("Airtable fetch error:", msg);
+    // For other errors (network, auth), also fall back but note the error
+    return NextResponse.json({ data: MOCK_CONTACTS, source: "mock", airtable_error: msg });
+  }
 }
 
 export async function POST() {

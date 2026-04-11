@@ -1,6 +1,6 @@
 // ── Contact types ─────────────────────────────────────────────
 export type ContactStatus = "new" | "approved" | "rejected" | "in_sequence" | "replied";
-export type ContactSource = "apollo_csv" | "manual" | "linkedin" | "website";
+export type ContactSource = "apollo_csv" | "apollo" | "manual" | "linkedin" | "website";
 
 export interface Contact {
   id: string;
@@ -27,7 +27,7 @@ export interface Contact {
 export type SequenceStatus = "draft" | "pending_approval" | "approved" | "active" | "paused" | "completed";
 export type StepType = "email" | "wait" | "condition";
 
-export type SequenceTypeId = "cold_instantly" | "priority_lemlist" | "nurture_activecampaign";
+export type SequenceTypeId = "cold_instantly" | "priority_instantly" | "nurture_instantly";
 export type TargetSegment = "distributors" | "private_label" | "top_50_priority" | "custom";
 
 export interface SequenceStep {
@@ -60,7 +60,7 @@ export interface Sequence {
 
 // ── Campaign types ────────────────────────────────────────────
 export type CampaignStatus = "draft" | "pending_approval" | "approved" | "sending" | "active" | "paused" | "completed";
-export type CampaignPlatform = "instantly" | "lemlist";
+export type CampaignPlatform = "instantly";
 
 export interface CampaignStats {
   total_sent: number;

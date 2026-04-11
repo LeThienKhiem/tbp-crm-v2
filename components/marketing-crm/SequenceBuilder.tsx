@@ -20,6 +20,8 @@ import {
   AlertTriangle,
   CheckCircle,
   Zap,
+  Rocket,
+  RefreshCw,
 } from "lucide-react";
 import type {
   Sequence,
@@ -57,8 +59,8 @@ const SEQUENCE_TYPES: {
   badge: string;
 }[] = [
   { id: "cold_instantly", label: "Cold Outreach", tool: "Instantly.ai", badge: "bg-blue-50 text-blue-700 ring-blue-300" },
-  { id: "priority_lemlist", label: "Priority Outreach", tool: "Lemlist", badge: "bg-purple-50 text-purple-700 ring-purple-300" },
-  { id: "nurture_activecampaign", label: "Warm Nurture", tool: "ActiveCampaign", badge: "bg-green-50 text-green-700 ring-green-300" },
+  { id: "priority_instantly", label: "Priority Outreach", tool: "Instantly.ai", badge: "bg-blue-50 text-blue-700 ring-blue-300" },
+  { id: "nurture_instantly", label: "Warm Nurture", tool: "Instantly.ai", badge: "bg-blue-50 text-blue-700 ring-blue-300" },
 ];
 
 const SEGMENT_OPTIONS: { id: TargetSegment; label: string }[] = [
@@ -249,6 +251,8 @@ export default function SequenceBuilder() {
   const [activeSequence, setActiveSequence] = useState<Sequence | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [showDeployModal, setShowDeployModal] = useState<Sequence | null>(null);
+  const [deploying, setDeploying] = useState(false);
 
   // ── Fetch ────────────────────────────────────────────────────
   const fetchSequences = useCallback(async () => {
@@ -366,6 +370,49 @@ export default function SequenceBuilder() {
       }
     } catch {
       showToastMsg("Failed to submit");
+    }
+  }
+
+  // ── Deploy to Instantly ────────────────────────────────────
+  async function handleDeploy() {
+    if (!showDeployModal) return;
+    setDeploying(true);
+    try {
+      // Convert sequence steps to Instantly format
+      const sequences = showDeployModal.steps
+        .filter((s) => s.type === "email")
+        .map((step, i) => {
+          // Find wait step before this email (if any)
+          const prevSteps = showDeployModal.steps.slice(0, showDeployModal.steps.findIndex((s) => s.id === step.id));
+          const lastWait = [...prevSteps].reverse().find((s) => s.type === "wait");
+          return {
+            delay: i === 0 ? 0 : (lastWait?.wait_days ?? 3),
+            delay_unit: "day",
+            variants: [{ subject: step.subject || "", body: step.body || "" }],
+          };
+        });
+
+      const res = await fetch("/api/marketing-crm/campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: showDeployModal.name,
+          sequences,
+          daily_limit: 50,
+        }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || "Deploy failed");
+      }
+
+      showToastMsg(`"${showDeployModal.name}" deployed to Instantly as a campaign!`);
+      setShowDeployModal(null);
+    } catch (err: unknown) {
+      showToastMsg(err instanceof Error ? err.message : "Failed to deploy");
+    } finally {
+      setDeploying(false);
     }
   }
 
@@ -636,11 +683,68 @@ export default function SequenceBuilder() {
   }
 
   // ════════════════════════════════════════════════════════════
+  //  DEPLOY TO INSTANTLY MODAL
+  // ════════════════════════════════════════════════════════════
+  const deployModal = showDeployModal && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
+            <Rocket size={18} className="text-emerald-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900">Deploy to Instantly.ai</h3>
+            <p className="text-sm text-slate-500">Create a campaign from this sequence</p>
+          </div>
+        </div>
+
+        <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
+          <div className="flex justify-between">
+            <span className="text-slate-500">Sequence</span>
+            <span className="font-semibold text-slate-900">{showDeployModal.name}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Email Steps</span>
+            <span className="text-slate-700">{showDeployModal.steps.filter((s) => s.type === "email").length}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">Target</span>
+            <span className="text-slate-700">
+              {showDeployModal.target_segments.map(getSegmentLabel).join(", ")}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">States</span>
+            <span className="text-slate-700">{showDeployModal.target_states.join(", ")}</span>
+          </div>
+        </div>
+
+        <p className="mt-3 text-xs text-slate-500">
+          This will create a new campaign in Instantly.ai as a Draft. You can then add leads and launch it from the Campaigns tab.
+        </p>
+
+        <div className="mt-5 flex items-center justify-end gap-3">
+          <button onClick={() => setShowDeployModal(null)}
+            className="rounded-lg px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100">
+            Cancel
+          </button>
+          <button onClick={handleDeploy} disabled={deploying}
+            className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+            {deploying ? <RefreshCw size={14} className="animate-spin" /> : <Rocket size={14} />}
+            {deploying ? "Deploying..." : "Deploy to Instantly"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ════════════════════════════════════════════════════════════
   //  LIST VIEW
   // ════════════════════════════════════════════════════════════
   return (
     <div className="space-y-6">
       {toastEl}
+      {deployModal}
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -725,6 +829,12 @@ export default function SequenceBuilder() {
                     <button onClick={() => { setActiveSequence(seq); setTimeout(() => openSubmitModal(), 0); }}
                       className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
                       <Send size={14} /> Submit
+                    </button>
+                  )}
+                  {(seq.status === "approved" || seq.status === "active") && (
+                    <button onClick={() => setShowDeployModal(seq)}
+                      className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700">
+                      <Rocket size={14} /> Deploy to Instantly
                     </button>
                   )}
                 </div>
