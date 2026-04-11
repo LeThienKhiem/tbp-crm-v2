@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import EmailPreview from "./EmailPreview";
 import {
   Plus,
+  Eye,
   Mail,
   Clock,
   GitBranch,
@@ -91,33 +93,41 @@ const US_STATES: { abbr: string; name: string }[] = [
 ];
 
 // ── Email Templates ─────────────────────────────────────────────
-const EMAIL_TEMPLATES: { id: string; label: string; subject: string; body: string }[] = [
+const EMAIL_TEMPLATES: { id: string; label: string; subject: string; body: string; templateFile?: string }[] = [
   {
     id: "cold_intro",
-    label: "Cold Intro — Brake Drums",
-    subject: "TBP Auto \u2014 Premium Brake Drums for {{company_name}}",
+    label: "⭐ Cold Intro — Premium HTML Template",
+    subject: "TBP Auto — Premium Brake Drums for {{company_name}}",
     body: `Hi {{first_name}},
 
-I noticed {{company_name}} operates a significant fleet across the US. At TBP Auto, we manufacture premium brake drums that meet FMVSS 121 standards at competitive pricing \u2014 direct from our factory in Vietnam with US warehouse fulfillment.
+I noticed {{company_name}} operates a significant fleet across the US. With Chinese brake drum duties now exceeding 446%, many fleet operators are looking for alternative, cost-effective suppliers.
 
-Would you be open to a quick call this week to discuss your brake drum sourcing?
+At TBP Auto, we manufacture premium brake drums in Vietnam — identical quality to what you're sourcing today, but with zero anti-dumping duties and competitive FOB pricing.
+
+Would you be open to a quick 15-minute call this week? I'd love to share our catalog and a sample pricing sheet for your most-used part numbers.
 
 Best,
 Thomas Nguyen
 TBP Auto`,
+    templateFile: "/email-templates/01-cold-outreach.html",
   },
   {
     id: "follow_up",
-    label: "Follow-up — Value Prop",
-    subject: "Re: TBP Auto \u2014 Premium Brake Drums for {{company_name}}",
+    label: "⭐ Follow-up — Cost Savings HTML Template",
+    subject: "Your Cost Savings Breakdown — {{company_name}}",
     body: `Hi {{first_name}},
 
-Just following up on my previous email. We currently supply brake drums to several major US fleet operators with 99.2% on-time delivery.
+I put together a quick comparison showing what {{company_name}} could save by switching to Vietnamese-origin brake drums. The numbers speak for themselves.
 
-I\u2019d love to share our catalog and pricing. Would 15 minutes work this week?
+Chinese-origin: $38,400/container (with 446% AD/CVD duty)
+TBP Auto (Vietnam): $14,200/container (0% duty)
+Your estimated savings: $21,400 per container.
+
+Would you like to see a full custom quote for {{company_name}}'s top 10 part numbers?
 
 Best,
 Thomas`,
+    templateFile: "/email-templates/02-follow-up-value.html",
   },
   {
     id: "last_chance",
@@ -273,34 +283,52 @@ function StepCard({
         </div>
       </div>
 
-      {step.type === "email" && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <Lock size={12} /><span>From: thomas@outreach.tbpauto.com</span>
+      {step.type === "email" && (() => {
+        const activeTemplate = EMAIL_TEMPLATES.find((t) =>
+          t.subject === step.subject && t.body === step.body
+        );
+        return (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <Lock size={12} /><span>From: thomas@outreach.tbpauto.com</span>
+              </div>
+              <select
+                value={activeTemplate?.id ?? ""}
+                onChange={(e) => {
+                  const tpl = EMAIL_TEMPLATES.find((t) => t.id === e.target.value);
+                  if (tpl) onChange({ ...step, subject: tpl.subject, body: tpl.body, templateFile: tpl.templateFile });
+                }}
+                className={`rounded-lg px-2.5 py-1.5 text-xs font-medium outline-none transition-colors ${
+                  activeTemplate
+                    ? "border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                    : "border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                }`}
+              >
+                <option value="">Use template...</option>
+                {EMAIL_TEMPLATES.map((t) => (
+                  <option key={t.id} value={t.id}>{t.id === activeTemplate?.id ? "✓ " : ""}{t.label}</option>
+                ))}
+              </select>
             </div>
-            <select
-              value=""
-              onChange={(e) => {
-                const tpl = EMAIL_TEMPLATES.find((t) => t.id === e.target.value);
-                if (tpl) onChange({ ...step, subject: tpl.subject, body: tpl.body });
-              }}
-              className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 outline-none hover:bg-blue-100"
-            >
-              <option value="">Use template...</option>
-              {EMAIL_TEMPLATES.map((t) => (
-                <option key={t.id} value={t.id}>{t.label}</option>
-              ))}
-            </select>
+            {activeTemplate && (
+              <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700">
+                <CheckCircle size={12} className="shrink-0" />
+                <span>Using template: <strong>{activeTemplate.label.replace(/⭐\s*/, "")}</strong></span>
+                {activeTemplate.templateFile && (
+                  <span className="ml-auto rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase">HTML</span>
+                )}
+              </div>
+            )}
+            <input type="text" placeholder="Subject line..." value={step.subject ?? ""}
+              onChange={(e) => onChange({ ...step, subject: e.target.value })}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
+            <textarea placeholder="Email body... Use {{first_name}}, {{company_name}} for personalization." rows={4} value={step.body ?? ""}
+              onChange={(e) => onChange({ ...step, body: e.target.value })}
+              className="w-full resize-y rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
           </div>
-          <input type="text" placeholder="Subject line..." value={step.subject ?? ""}
-            onChange={(e) => onChange({ ...step, subject: e.target.value })}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
-          <textarea placeholder="Email body... Use {{first_name}}, {{company_name}} for personalization." rows={4} value={step.body ?? ""}
-            onChange={(e) => onChange({ ...step, body: e.target.value })}
-            className="w-full resize-y rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
-        </div>
-      )}
+        );
+      })()}
 
       {step.type === "wait" && (
         <div className="flex items-center gap-2">
@@ -511,6 +539,8 @@ export default function SequenceBuilder() {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showDeployModal, setShowDeployModal] = useState<Sequence | null>(null);
   const [deploying, setDeploying] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewSequence, setPreviewSequence] = useState<Sequence | null>(null);
 
   // ── Fetch ────────────────────────────────────────────────────
   const fetchSequences = useCallback(async () => {
@@ -555,7 +585,7 @@ export default function SequenceBuilder() {
     setActiveSequence(seq);
   }
 
-  function handleDuplicate(seq: Sequence) {
+  async function handleDuplicate(seq: Sequence) {
     const dup: Sequence = {
       ...seq,
       id: `seq_${Date.now()}`,
@@ -567,8 +597,17 @@ export default function SequenceBuilder() {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    setSequences((prev) => [...prev, dup]);
-    showToastMsg("Sequence duplicated");
+    try {
+      await fetch("/api/marketing-crm/sequences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dup),
+      });
+      setSequences((prev) => [...prev, dup]);
+      showToastMsg("Sequence duplicated");
+    } catch {
+      showToastMsg("Failed to duplicate");
+    }
   }
 
   async function handleSaveDraft() {
@@ -581,11 +620,15 @@ export default function SequenceBuilder() {
         body: JSON.stringify(updated),
       });
       if (res.ok) {
+        const json = await res.json();
+        const saved = json.data ?? updated;
+        // Merge Airtable record ID back so future saves update instead of create
+        const merged = { ...updated, id: saved.id ?? updated.id, _recordId: saved._recordId ?? (updated as Record<string, unknown>)._recordId };
         setSequences((prev) => {
-          const idx = prev.findIndex((s) => s.id === updated.id);
-          return idx >= 0 ? prev.map((s) => (s.id === updated.id ? updated : s)) : [...prev, updated];
+          const idx = prev.findIndex((s) => s.id === updated.id || s.id === merged.id);
+          return idx >= 0 ? prev.map((s) => (s.id === updated.id || s.id === merged.id ? merged as Sequence : s)) : [...prev, merged as Sequence];
         });
-        setActiveSequence(updated);
+        setActiveSequence(merged as Sequence);
         showToastMsg("Draft saved");
       } else {
         showToastMsg("Failed to save draft");
@@ -610,22 +653,56 @@ export default function SequenceBuilder() {
       updated_at: new Date().toISOString(),
     };
     try {
+      // 1. Save sequence with pending_approval status
       const res = await fetch("/api/marketing-crm/sequences", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updated),
       });
-      if (res.ok) {
-        setSequences((prev) => {
-          const idx = prev.findIndex((s) => s.id === updated.id);
-          return idx >= 0 ? prev.map((s) => (s.id === updated.id ? updated : s)) : [...prev, updated];
-        });
-        setActiveSequence(updated);
-        setShowSubmitModal(false);
-        showToastMsg("Submitted for approval");
-      } else {
-        showToastMsg("Failed to submit");
-      }
+      if (!res.ok) { showToastMsg("Failed to submit"); return; }
+      const seqJson = await res.json();
+      const savedSeq = seqJson.data ?? updated;
+      const seqRecordId = savedSeq._recordId ?? savedSeq.id ?? updated.id;
+
+      // 2. Create approval item
+      const segLabels: Record<string, string> = { distributors: "Distributors", private_label: "Private Label", top_50_priority: "Top 50 Priority", custom: "Custom List" };
+      const approvalItem = {
+        type: "sequence",
+        reference_id: seqRecordId,
+        title: updated.name,
+        description: `${updated.steps.length}-step ${updated.sequence_type.replace("_instantly", "")} sequence via Instantly.ai targeting ${updated.target_segments.map(s => segLabels[s] || s).join(", ")} in ${updated.target_states.join(", ")}. ~${updated.estimated_contacts} contacts.`,
+        submitted_by: updated.created_by || "Khiem",
+        submitted_at: new Date().toISOString(),
+        status: "pending",
+        sequence_detail: {
+          sequence_type: updated.sequence_type,
+          target_segments: updated.target_segments,
+          target_states: updated.target_states,
+          estimated_contacts: updated.estimated_contacts,
+          send_from_domain: updated.send_from_domain,
+          steps: updated.steps.map(s => ({
+            type: s.type,
+            subject: s.subject,
+            body: s.body,
+            templateFile: s.templateFile,
+            wait_days: s.wait_days,
+            condition: s.condition,
+          })),
+        },
+      };
+      await fetch("/api/marketing-crm/approvals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(approvalItem),
+      });
+
+      setSequences((prev) => {
+        const idx = prev.findIndex((s) => s.id === updated.id);
+        return idx >= 0 ? prev.map((s) => (s.id === updated.id ? updated : s)) : [...prev, updated];
+      });
+      setActiveSequence(updated);
+      setShowSubmitModal(false);
+      showToastMsg("Submitted for approval");
     } catch {
       showToastMsg("Failed to submit");
     }
@@ -657,6 +734,10 @@ export default function SequenceBuilder() {
           name: showDeployModal.name,
           sequences,
           daily_limit: 50,
+          // Extra fields for Airtable tracking
+          sequence_id: showDeployModal._recordId ?? showDeployModal.id,
+          sequence_name: showDeployModal.name,
+          deployed_by: "Marketing Team",
         }),
       });
 
@@ -914,11 +995,25 @@ export default function SequenceBuilder() {
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Save Draft
           </button>
+          <button onClick={() => { setPreviewSequence(activeSequence); setShowPreview(true); }}
+            className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100">
+            <Eye size={14} /> Preview Emails
+          </button>
           <button onClick={openSubmitModal}
             className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700">
             <Send size={14} /> Submit for Approval
           </button>
         </div>
+
+        {/* Email Preview Modal */}
+        {showPreview && previewSequence && (
+          <EmailPreview
+            steps={previewSequence.steps}
+            sequenceName={previewSequence.name}
+            fromEmail={`thomas@${previewSequence.send_from_domain}`}
+            onClose={() => setShowPreview(false)}
+          />
+        )}
       </div>
     );
   }
@@ -1057,10 +1152,14 @@ export default function SequenceBuilder() {
                 </div>
 
                 {/* Row 5: Actions */}
-                <div className="flex items-center gap-2 border-t border-slate-100 pt-3">
+                <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
                   <button onClick={() => setActiveSequence(seq)}
                     className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
                     <Edit3 size={14} /> Edit
+                  </button>
+                  <button onClick={() => { setPreviewSequence(seq); setShowPreview(true); }}
+                    className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100">
+                    <Eye size={14} /> Preview
                   </button>
                   <button onClick={() => handleDuplicate(seq)}
                     className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -1075,7 +1174,7 @@ export default function SequenceBuilder() {
                   {(seq.status === "approved" || seq.status === "active") && (
                     <button onClick={() => setShowDeployModal(seq)}
                       className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700">
-                      <Rocket size={14} /> Deploy to Instantly
+                      <Rocket size={14} /> Deploy
                     </button>
                   )}
                 </div>
@@ -1083,6 +1182,16 @@ export default function SequenceBuilder() {
             );
           })}
         </div>
+      )}
+
+      {/* Email Preview Modal (from list view) */}
+      {showPreview && previewSequence && (
+        <EmailPreview
+          steps={previewSequence.steps}
+          sequenceName={previewSequence.name}
+          fromEmail={`thomas@${previewSequence.send_from_domain}`}
+          onClose={() => setShowPreview(false)}
+        />
       )}
     </div>
   );

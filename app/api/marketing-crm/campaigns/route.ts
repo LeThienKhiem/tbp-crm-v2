@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as instantly from "@/services/instantlyService";
+import {
+  isConfigured as airtableConfigured,
+  createCampaign as createAirtableCampaign,
+  listCampaigns as listAirtableCampaigns,
+} from "@/services/airtableCrm";
 
 // ── GET — list all campaigns (Instantly + analytics merged) ──
 export async function GET() {
@@ -102,6 +107,35 @@ export async function POST(req: NextRequest) {
       email_gap: email_gap ?? 5,
       campaign_schedule,
     });
+
+    // Also log campaign to Airtable for tracking history
+    if (airtableConfigured()) {
+      try {
+        await createAirtableCampaign({
+          name: name || campaign.name,
+          sequence_id: body.sequence_id ?? "",
+          sequence_name: body.sequence_name ?? name ?? "",
+          instantly_campaign_id: campaign.id,
+          status: "deployed",
+          total_leads: 0,
+          emails_sent: 0,
+          opens: 0,
+          replies: 0,
+          bounces: 0,
+          deployed_by: body.deployed_by ?? "system",
+          deployed_at: new Date().toISOString(),
+          settings: {
+            daily_limit: daily_limit || 50,
+            stop_on_reply: stop_on_reply ?? true,
+            link_tracking: link_tracking ?? false,
+            open_tracking: open_tracking ?? true,
+            text_only: text_only ?? false,
+          },
+        });
+      } catch (airtableErr) {
+        console.warn("Failed to log campaign to Airtable (non-blocking):", airtableErr);
+      }
+    }
 
     return NextResponse.json({ data: campaign, source: "instantly" });
   } catch (err: unknown) {

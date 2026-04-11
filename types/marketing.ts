@@ -36,12 +36,14 @@ export interface SequenceStep {
   type: StepType;
   subject?: string;
   body?: string;
+  templateFile?: string;
   wait_days?: number;
   condition?: string;
 }
 
 export interface Sequence {
   id: string;
+  _recordId?: string;      // Airtable record ID
   name: string;
   description?: string;
   steps: SequenceStep[];
@@ -160,4 +162,4 @@ export interface StateBreakdown {
 }
 
 // ── Tab navigation ────────────────────────────────────────────
-export type MarketingTab = "contacts" | "sequences" | "approvals" | "campaigns" | "pipeline" | "analytics";
+export type MarketingTab = "contacts" | "sequences" | "templates" | "approvals" | "campaigns" | "pipeline" | "analytics";

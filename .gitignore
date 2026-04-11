@@ -26,6 +26,9 @@ test-results/
 .DS_Store
 *.pem
 
+# local data store
+/data
+
 # debug
 npm-debug.log*
 yarn-debug.log*

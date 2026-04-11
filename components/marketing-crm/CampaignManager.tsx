@@ -322,6 +322,32 @@ export default function CampaignManager() {
 
       const result = await res.json();
       const d = result.data;
+
+      // Log send entries to Airtable for tracking
+      const campaign = campaigns.find((c) => c.id === campaignId);
+      try {
+        const sendLogs = contacts.map((c: { email: string; first_name: string; last_name: string; company: string }) => ({
+          contact_email: c.email,
+          contact_name: `${c.first_name} ${c.last_name}`.trim(),
+          contact_company: c.company || "",
+          campaign_id: campaignId,
+          campaign_name: campaign?.name ?? campaignId,
+          sequence_step: 1,
+          subject: campaign?.sequences?.[0]?.variants?.[0]?.subject ?? "",
+          body_preview: campaign?.sequences?.[0]?.variants?.[0]?.body?.slice(0, 200) ?? "",
+          status: "queued",
+          sent_at: new Date().toISOString(),
+        }));
+        await fetch("/api/marketing-crm/send-logs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ logs: sendLogs }),
+        });
+      } catch {
+        // Non-blocking — don't fail the push if logging fails
+        console.warn("Failed to create send logs (non-blocking)");
+      }
+
       showToast(`Pushed ${d.leads_uploaded} leads (${d.duplicated_leads} duplicates skipped)`);
       setShowPushLeadsModal(null);
       fetchCampaigns();

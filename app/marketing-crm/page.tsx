@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Users,
   Mail,
+  FileText,
   ShieldCheck,
   Megaphone,
   Kanban,
@@ -16,6 +17,7 @@ import type { MarketingTab } from "@/types/marketing";
 import ContactHub from "@/components/marketing-crm/ContactHub";
 import SequenceBuilder from "@/components/marketing-crm/SequenceBuilder";
 import ApprovalCenter from "@/components/marketing-crm/ApprovalCenter";
+import EmailTemplates from "@/components/marketing-crm/EmailTemplates";
 import CampaignManager from "@/components/marketing-crm/CampaignManager";
 import LeadPipeline from "@/components/marketing-crm/LeadPipeline";
 import Analytics from "@/components/marketing-crm/Analytics";
@@ -23,6 +25,7 @@ import Analytics from "@/components/marketing-crm/Analytics";
 const TAB_CONFIG: { id: MarketingTab; label: string; icon: typeof Users }[] = [
   { id: "contacts", label: "Contact Hub", icon: Users },
   { id: "sequences", label: "Sequences", icon: Mail },
+  { id: "templates", label: "Templates", icon: FileText },
   { id: "approvals", label: "Approvals", icon: ShieldCheck },
   { id: "campaigns", label: "Campaigns", icon: Megaphone },
   { id: "pipeline", label: "Pipeline", icon: Kanban },
@@ -98,6 +101,7 @@ export default function MarketingCrmPage() {
         {/* Active tab content */}
         {activeTab === "contacts" && <ContactHub />}
         {activeTab === "sequences" && <SequenceBuilder />}
+        {activeTab === "templates" && <EmailTemplates />}
         {activeTab === "approvals" && <ApprovalCenter />}
         {activeTab === "campaigns" && <CampaignManager />}
         {activeTab === "pipeline" && <LeadPipeline />}

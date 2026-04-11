@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  Eye,
   GitBranch,
   Loader2,
   Lock,
@@ -18,6 +19,7 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
+import EmailPreview from "./EmailPreview";
 import type {
   ApprovalItem,
   ApprovalType,
@@ -142,6 +144,7 @@ export default function ApprovalCenter() {
   const [reviewNotes, setReviewNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [previewItem, setPreviewItem] = useState<ApprovalItem | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -180,13 +183,41 @@ export default function ApprovalCenter() {
   const confirmReview = useCallback(async () => {
     if (!reviewItem) return;
     setSubmitting(true);
+    const newStatus = reviewItem.action === "approve" ? "approved" : "rejected";
     try {
-      const res = await fetch(`/api/marketing-crm/approvals/${reviewItem.item.id}`, {
+      // 1. Update approval status
+      const res = await fetch(`/api/marketing-crm/approvals`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: reviewItem.action === "approve" ? "approved" : "rejected", reviewer_notes: reviewNotes || null }),
+        body: JSON.stringify({ id: reviewItem.item.id, status: newStatus, reviewer_notes: reviewNotes || null }),
       });
       if (!res.ok) throw new Error("Request failed");
+
+      // 2. If it's a sequence approval, also update the sequence status
+      if (reviewItem.item.type === "sequence" && reviewItem.item.reference_id) {
+        try {
+          const seqRes = await fetch("/api/marketing-crm/sequences");
+          if (seqRes.ok) {
+            const seqJson = await seqRes.json();
+            const seq = (seqJson.data ?? []).find((s: { id: string }) => s.id === reviewItem.item.reference_id);
+            if (seq) {
+              await fetch("/api/marketing-crm/sequences", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  ...seq,
+                  status: newStatus === "approved" ? "approved" : "draft",
+                  approved_by: newStatus === "approved" ? "Thomas" : null,
+                  approved_at: newStatus === "approved" ? new Date().toISOString() : null,
+                }),
+              });
+            }
+          }
+        } catch {
+          // Non-critical: sequence status update failed
+        }
+      }
+
       setApprovals((prev) => prev.filter((a) => a.id !== reviewItem.item.id));
       setToast({ message: `${reviewItem.item.title} ${reviewItem.action === "approve" ? "approved" : "rejected"}`, type: "success" });
       closeReview();
@@ -267,6 +298,12 @@ export default function ApprovalCenter() {
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
+                    {item.type === "sequence" && item.sequence_detail && (
+                      <button onClick={() => setPreviewItem(item)}
+                        className="flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100">
+                        <Eye className="h-3.5 w-3.5" /> Preview
+                      </button>
+                    )}
                     <button onClick={() => openReview(item, "approve")}
                       className="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700">
                       Approve
@@ -305,6 +342,10 @@ export default function ApprovalCenter() {
             {reviewItem.item.type === "sequence" && reviewItem.item.sequence_detail && (
               <div className="mt-3">
                 <SequenceApprovalDetail item={reviewItem.item} />
+                <button onClick={() => setPreviewItem(reviewItem.item)}
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-medium text-blue-700 hover:bg-blue-100">
+                  <Eye className="h-4 w-4" /> Preview Full Emails
+                </button>
               </div>
             )}
 
@@ -335,6 +376,25 @@ export default function ApprovalCenter() {
       )}
 
       {toast && <ToastNotification toast={toast} onClose={() => setToast(null)} />}
+
+      {/* Email Preview for sequences */}
+      {previewItem && previewItem.sequence_detail && (
+        <EmailPreview
+          steps={(previewItem.sequence_detail.steps ?? []).map((s, i) => ({
+            id: `preview_${i}`,
+            order: i,
+            type: s.type,
+            subject: s.subject,
+            body: s.body,
+            templateFile: (s as { templateFile?: string }).templateFile,
+            wait_days: s.wait_days,
+            condition: s.condition,
+          }))}
+          sequenceName={previewItem.title}
+          fromEmail={`thomas@${previewItem.sequence_detail.send_from_domain ?? "outreach.tbpauto.com"}`}
+          onClose={() => setPreviewItem(null)}
+        />
+      )}
     </div>
   );
 }
