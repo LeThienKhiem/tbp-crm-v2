@@ -356,7 +356,7 @@ export default function ContactHub() {
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input type="text" placeholder="Search name, company, or email..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
+            className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
         </div>
 
         <div className="relative">
@@ -418,22 +418,22 @@ export default function ContactHub() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input type="text" placeholder="Keywords..." value={apolloQuery} onChange={(e) => setApolloQuery(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20" />
+                className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20" />
             </div>
             <div className="relative">
               <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input type="text" placeholder="Company..." value={apolloCompany} onChange={(e) => setApolloCompany(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20" />
+                className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20" />
             </div>
             <div className="relative">
               <Briefcase className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input type="text" placeholder="Job title..." value={apolloTitle} onChange={(e) => setApolloTitle(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20" />
+                className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20" />
             </div>
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input type="text" placeholder="Location (e.g. Texas)..." value={apolloLocation} onChange={(e) => setApolloLocation(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20" />
+                className="w-full rounded-lg border border-slate-300 pl-9 pr-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20" />
             </div>
             <div className="sm:col-span-2 lg:col-span-4 flex items-center gap-3">
               <button type="submit" disabled={apolloSearching}

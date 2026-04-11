@@ -70,11 +70,107 @@ const SEGMENT_OPTIONS: { id: TargetSegment; label: string }[] = [
   { id: "custom", label: "Custom List" },
 ];
 
-const US_STATES = [
-  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA",
-  "KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ",
-  "NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT",
-  "VA","WA","WV","WI","WY",
+const US_STATES: { abbr: string; name: string }[] = [
+  { abbr: "AL", name: "Alabama" }, { abbr: "AK", name: "Alaska" }, { abbr: "AZ", name: "Arizona" },
+  { abbr: "AR", name: "Arkansas" }, { abbr: "CA", name: "California" }, { abbr: "CO", name: "Colorado" },
+  { abbr: "CT", name: "Connecticut" }, { abbr: "DE", name: "Delaware" }, { abbr: "FL", name: "Florida" },
+  { abbr: "GA", name: "Georgia" }, { abbr: "HI", name: "Hawaii" }, { abbr: "ID", name: "Idaho" },
+  { abbr: "IL", name: "Illinois" }, { abbr: "IN", name: "Indiana" }, { abbr: "IA", name: "Iowa" },
+  { abbr: "KS", name: "Kansas" }, { abbr: "KY", name: "Kentucky" }, { abbr: "LA", name: "Louisiana" },
+  { abbr: "ME", name: "Maine" }, { abbr: "MD", name: "Maryland" }, { abbr: "MA", name: "Massachusetts" },
+  { abbr: "MI", name: "Michigan" }, { abbr: "MN", name: "Minnesota" }, { abbr: "MS", name: "Mississippi" },
+  { abbr: "MO", name: "Missouri" }, { abbr: "MT", name: "Montana" }, { abbr: "NE", name: "Nebraska" },
+  { abbr: "NV", name: "Nevada" }, { abbr: "NH", name: "New Hampshire" }, { abbr: "NJ", name: "New Jersey" },
+  { abbr: "NM", name: "New Mexico" }, { abbr: "NY", name: "New York" }, { abbr: "NC", name: "North Carolina" },
+  { abbr: "ND", name: "North Dakota" }, { abbr: "OH", name: "Ohio" }, { abbr: "OK", name: "Oklahoma" },
+  { abbr: "OR", name: "Oregon" }, { abbr: "PA", name: "Pennsylvania" }, { abbr: "RI", name: "Rhode Island" },
+  { abbr: "SC", name: "South Carolina" }, { abbr: "SD", name: "South Dakota" }, { abbr: "TN", name: "Tennessee" },
+  { abbr: "TX", name: "Texas" }, { abbr: "UT", name: "Utah" }, { abbr: "VT", name: "Vermont" },
+  { abbr: "VA", name: "Virginia" }, { abbr: "WA", name: "Washington" }, { abbr: "WV", name: "West Virginia" },
+  { abbr: "WI", name: "Wisconsin" }, { abbr: "WY", name: "Wyoming" },
+];
+
+// ── Email Templates ─────────────────────────────────────────────
+const EMAIL_TEMPLATES: { id: string; label: string; subject: string; body: string }[] = [
+  {
+    id: "cold_intro",
+    label: "Cold Intro — Brake Drums",
+    subject: "TBP Auto \u2014 Premium Brake Drums for {{company_name}}",
+    body: `Hi {{first_name}},
+
+I noticed {{company_name}} operates a significant fleet across the US. At TBP Auto, we manufacture premium brake drums that meet FMVSS 121 standards at competitive pricing \u2014 direct from our factory in Vietnam with US warehouse fulfillment.
+
+Would you be open to a quick call this week to discuss your brake drum sourcing?
+
+Best,
+Thomas Nguyen
+TBP Auto`,
+  },
+  {
+    id: "follow_up",
+    label: "Follow-up — Value Prop",
+    subject: "Re: TBP Auto \u2014 Premium Brake Drums for {{company_name}}",
+    body: `Hi {{first_name}},
+
+Just following up on my previous email. We currently supply brake drums to several major US fleet operators with 99.2% on-time delivery.
+
+I\u2019d love to share our catalog and pricing. Would 15 minutes work this week?
+
+Best,
+Thomas`,
+  },
+  {
+    id: "last_chance",
+    label: "Last Touch — Free Sample",
+    subject: "Quick question about {{company_name}}'s brake drum sourcing",
+    body: `Hi {{first_name}},
+
+One last reach-out \u2014 we have a special introductory offer for new fleet customers: free sample shipment + 10% off first order.
+
+If now isn\u2019t the right time, no worries. But if you\u2019re evaluating brake drum suppliers, I\u2019d welcome the chance to earn your business.
+
+Best,
+Thomas`,
+  },
+  {
+    id: "trade_show",
+    label: "Trade Show Follow-up",
+    subject: "Great meeting you at the show, {{first_name}}",
+    body: `Hi {{first_name}},
+
+It was great connecting at the trade show. As discussed, TBP Auto manufactures high-quality brake drums with direct US shipping from our Vietnam facility.
+
+I\u2019ve attached our latest catalog. Would you like to schedule a follow-up call?
+
+Best,
+Thomas`,
+  },
+  {
+    id: "reengagement",
+    label: "Re-engagement \u2014 New Products",
+    subject: "New: TBP Auto 2025 product line + US warehouse update",
+    body: `Hi {{first_name}},
+
+Hope you\u2019re doing well. Wanted to share some exciting news \u2014 TBP Auto has expanded our 2025 brake drum line and now offers local US warehouse fulfillment for faster delivery.
+
+Would this change the equation for {{company_name}}?
+
+Best,
+Thomas`,
+  },
+  {
+    id: "special_pricing",
+    label: "Special Pricing Offer",
+    subject: "Special pricing for {{company_name}} \u2014 limited time",
+    body: `Hi {{first_name}},
+
+I wanted to extend a special Q2 pricing offer for {{company_name}}: 15% off your first container order + free ocean freight.
+
+This is available through end of Q2. Let me know if you\u2019d like details.
+
+Best,
+Thomas`,
+  },
 ];
 
 // Mock contact count based on segment + state count
@@ -179,15 +275,30 @@ function StepCard({
 
       {step.type === "email" && (
         <div className="space-y-3">
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <Lock size={12} /><span>From: thomas@outreach.tbpauto.com</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <Lock size={12} /><span>From: thomas@outreach.tbpauto.com</span>
+            </div>
+            <select
+              value=""
+              onChange={(e) => {
+                const tpl = EMAIL_TEMPLATES.find((t) => t.id === e.target.value);
+                if (tpl) onChange({ ...step, subject: tpl.subject, body: tpl.body });
+              }}
+              className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 outline-none hover:bg-blue-100"
+            >
+              <option value="">Use template...</option>
+              {EMAIL_TEMPLATES.map((t) => (
+                <option key={t.id} value={t.id}>{t.label}</option>
+              ))}
+            </select>
           </div>
           <input type="text" placeholder="Subject line..." value={step.subject ?? ""}
             onChange={(e) => onChange({ ...step, subject: e.target.value })}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
-          <textarea placeholder="Email body..." rows={4} value={step.body ?? ""}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
+          <textarea placeholder="Email body... Use {{first_name}}, {{company_name}} for personalization." rows={4} value={step.body ?? ""}
             onChange={(e) => onChange({ ...step, body: e.target.value })}
-            className="w-full resize-y rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
+            className="w-full resize-y rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
         </div>
       )}
 
@@ -195,7 +306,7 @@ function StepCard({
         <div className="flex items-center gap-2">
           <input type="number" min={1} value={step.wait_days ?? 2}
             onChange={(e) => onChange({ ...step, wait_days: Math.max(1, parseInt(e.target.value) || 1) })}
-            className="w-20 rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
+            className="w-20 rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
           <span className="text-sm text-slate-600">days</span>
         </div>
       )}
@@ -203,7 +314,7 @@ function StepCard({
       {step.type === "condition" && (
         <select value={step.condition ?? "opened_previous"}
           onChange={(e) => onChange({ ...step, condition: e.target.value })}
-          className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
+          className="rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
           <option value="opened_previous">Opened previous email</option>
           <option value="clicked_previous">Clicked in previous email</option>
           <option value="replied">Replied to sequence</option>
@@ -239,6 +350,153 @@ function MultiPill<T extends string>({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ── State Multi-Select Dropdown ─────────────────────────────────
+
+function StateMultiSelect({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (states: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filtered = US_STATES.filter(
+    (s) =>
+      s.name.toLowerCase().includes(search.toLowerCase()) ||
+      s.abbr.toLowerCase().includes(search.toLowerCase())
+  );
+
+  function toggle(abbr: string) {
+    onChange(
+      selected.includes(abbr)
+        ? selected.filter((s) => s !== abbr)
+        : [...selected, abbr]
+    );
+  }
+
+  function selectAll() {
+    onChange(US_STATES.map((s) => s.abbr));
+  }
+
+  function clearAll() {
+    onChange([]);
+  }
+
+  const getStateName = (abbr: string) =>
+    US_STATES.find((s) => s.abbr === abbr)?.name ?? abbr;
+
+  return (
+    <div className="relative">
+      <label className="mb-1.5 block text-sm font-medium text-slate-700">
+        Target States * <span className="font-normal text-slate-400">({selected.length} selected)</span>
+      </label>
+
+      {/* Trigger */}
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-left text-sm outline-none hover:border-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+      >
+        <span className={selected.length > 0 ? "text-slate-900" : "text-slate-500"}>
+          {selected.length === 0
+            ? "Select target states..."
+            : selected.length <= 5
+              ? selected.map((s) => `${getStateName(s)} (${s})`).join(", ")
+              : `${selected.length} states selected`}
+        </span>
+        <ChevronDown size={16} className={`text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {/* Selected tags */}
+      {selected.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {selected.map((abbr) => (
+            <span
+              key={abbr}
+              className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700"
+            >
+              {abbr} — {getStateName(abbr)}
+              <button
+                type="button"
+                onClick={() => toggle(abbr)}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-blue-200"
+              >
+                <X size={10} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute z-30 mt-1 max-h-72 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+          {/* Search */}
+          <div className="border-b border-slate-100 p-2">
+            <input
+              type="text"
+              placeholder="Search states..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500"
+              autoFocus
+            />
+          </div>
+
+          {/* Quick actions */}
+          <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-1.5">
+            <button type="button" onClick={selectAll} className="text-xs font-medium text-blue-600 hover:text-blue-800">
+              Select All
+            </button>
+            <span className="text-slate-300">|</span>
+            <button type="button" onClick={clearAll} className="text-xs font-medium text-slate-500 hover:text-slate-700">
+              Clear All
+            </button>
+            <span className="text-slate-300">|</span>
+            <button type="button" onClick={() => setOpen(false)} className="ml-auto text-xs font-medium text-slate-500 hover:text-slate-700">
+              Done
+            </button>
+          </div>
+
+          {/* Options list */}
+          <div className="max-h-52 overflow-y-auto p-1">
+            {filtered.map((state) => {
+              const isSelected = selected.includes(state.abbr);
+              return (
+                <button
+                  key={state.abbr}
+                  type="button"
+                  onClick={() => toggle(state.abbr)}
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                    isSelected
+                      ? "bg-blue-50 text-blue-800"
+                      : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className={`flex h-4 w-4 items-center justify-center rounded border text-[10px] ${
+                    isSelected
+                      ? "border-blue-600 bg-blue-600 text-white"
+                      : "border-slate-300"
+                  }`}>
+                    {isSelected && "\u2713"}
+                  </span>
+                  <span className="font-medium">{state.name}</span>
+                  <span className="text-slate-400">({state.abbr})</span>
+                </button>
+              );
+            })}
+            {filtered.length === 0 && (
+              <p className="px-3 py-4 text-center text-sm text-slate-400">No states match &ldquo;{search}&rdquo;</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -560,7 +818,7 @@ export default function SequenceBuilder() {
           <textarea value={activeSequence.description ?? ""}
             onChange={(e) => setActiveSequence({ ...activeSequence, description: e.target.value })}
             rows={2} placeholder="Brief description of this sequence..."
-            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
+            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
         </div>
 
         {/* ── Targeting fields ─────────────────────────────────── */}
@@ -574,7 +832,7 @@ export default function SequenceBuilder() {
               <label className="mb-1.5 block text-sm font-medium text-slate-700">Sequence Type *</label>
               <select value={activeSequence.sequence_type}
                 onChange={(e) => updateTargeting({ sequence_type: e.target.value as SequenceTypeId })}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
                 {SEQUENCE_TYPES.map((t) => (
                   <option key={t.id} value={t.id}>{t.label} ({t.tool})</option>
                 ))}
@@ -605,29 +863,12 @@ export default function SequenceBuilder() {
               />
             </div>
 
-            {/* Target States */}
+            {/* Target States — multi-select dropdown */}
             <div className="md:col-span-2">
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                Target States * <span className="font-normal text-slate-400">({activeSequence.target_states.length} selected)</span>
-              </label>
-              <div className="flex flex-wrap gap-1.5">
-                {US_STATES.map((st) => {
-                  const active = activeSequence.target_states.includes(st);
-                  return (
-                    <button key={st} type="button"
-                      onClick={() => {
-                        const states = active
-                          ? activeSequence.target_states.filter((s) => s !== st)
-                          : [...activeSequence.target_states, st];
-                        updateTargeting({ target_states: states });
-                      }}
-                      className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
-                        active ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                      }`}
-                    >{st}</button>
-                  );
-                })}
-              </div>
+              <StateMultiSelect
+                selected={activeSequence.target_states}
+                onChange={(states) => updateTargeting({ target_states: states })}
+              />
             </div>
           </div>
         </div>
