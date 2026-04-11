@@ -138,32 +138,46 @@ export async function getOrganization(organizationId: string): Promise<ApolloOrg
  * Only add a key when the user provided a value (no empty arrays or empty strings).
  */
 export async function apiSearch(params: ApolloSearchParams): Promise<ApolloSearchResult> {
-  const payload: Record<string, unknown> = {};
   const keywords = params.query?.trim();
-  if (keywords) payload.q_keywords = keywords;
   const companyName = params.companyName?.trim();
-  if (companyName) payload.q_organization_name = companyName;
   const jobTitle = params.jobTitle?.trim();
-  if (jobTitle) payload.person_titles = [jobTitle];
   const industry = params.industry?.trim();
-  if (industry) payload.organization_industries = [industry];
   const location = params.location?.trim();
   const country = params.country?.trim() || "United States";
   const personLocations = location ? [location, country] : [country];
-  payload.person_locations = personLocations;
-  payload.page = params.page ?? 1;
-  payload.per_page = Math.min(params.perPage ?? 25, 25);
+  const page = params.page ?? 1;
+  const per_page = Math.min(params.perPage ?? 25, 25);
 
-  console.log("FINAL PAYLOAD:", payload);
+  // Build payload — Apollo uses AND for all fields, which can be too restrictive.
+  // Strategy: try full query first, if 0 results → retry with relaxed filters.
+  function buildPayload(includeKeywords: boolean): Record<string, unknown> {
+    const p: Record<string, unknown> = {};
+    if (includeKeywords && keywords) p.q_keywords = keywords;
+    if (companyName) p.q_organization_name = companyName;
+    // If user typed keywords + company but no explicit job title, use keywords as title filter too
+    if (!includeKeywords && keywords && !jobTitle) p.person_titles = [keywords];
+    if (jobTitle) p.person_titles = [jobTitle];
+    if (industry) p.organization_industries = [industry];
+    p.person_locations = personLocations;
+    p.page = page;
+    p.per_page = per_page;
+    return p;
+  }
 
-  const res = await fetch(`${APOLLO_BASE}/mixed_people/api_search`, {
-    method: "POST",
-    headers: apolloHeaders(),
-    body: JSON.stringify(payload),
-  });
+  async function doSearch(payload: Record<string, unknown>): Promise<Response> {
+    return fetch(`${APOLLO_BASE}/mixed_people/api_search`, {
+      method: "POST",
+      headers: apolloHeaders(),
+      body: JSON.stringify(payload),
+    });
+  }
 
-  if (!res.ok) {
-    const text = await res.text();
+  // Attempt 1: full query (all fields AND)
+  const payload1 = buildPayload(true);
+  console.log("APOLLO SEARCH (attempt 1):", payload1);
+  let res = await doSearch(payload1);
+
+  function handleApiError(r: Response, text: string): never {
     let apolloMessage: string;
     try {
       const json = JSON.parse(text) as { error?: string; errors?: Array<{ message?: string }> };
@@ -172,20 +186,53 @@ export async function apiSearch(params: ApolloSearchParams): Promise<ApolloSearc
           ? json.error
           : Array.isArray(json?.errors) && json.errors[0]?.message
             ? String(json.errors[0].message)
-            : text.slice(0, 300) || `HTTP ${res.status}`;
+            : text.slice(0, 300) || `HTTP ${r.status}`;
     } catch {
-      apolloMessage = text.slice(0, 300) || `HTTP ${res.status}`;
+      apolloMessage = text.slice(0, 300) || `HTTP ${r.status}`;
     }
-    if (res.status === 401) throw new ApolloApiError(401, "Apollo API key invalid or expired");
-    throw new ApolloApiError(res.status, apolloMessage.slice(0, 500));
+    if (r.status === 401) throw new ApolloApiError(401, "Apollo API key invalid or expired");
+    throw new ApolloApiError(r.status, apolloMessage.slice(0, 500));
   }
 
-  const data = (await res.json()) as {
+  if (!res.ok) {
+    handleApiError(res, await res.text());
+  }
+
+  let data = (await res.json()) as {
     people?: Array<Record<string, unknown> & { person?: unknown; contact?: unknown; organization?: unknown }>;
     pagination?: { page: number; per_page: number; total_entries: number };
   };
 
-  console.log("RAW APOLLO:", data);
+  // Attempt 2: if 0 results AND we had keywords + another field → retry without q_keywords
+  // Move keywords into person_titles so it acts as a softer filter
+  const hasMultipleFilters = keywords && (companyName || jobTitle);
+  if ((!data.people || data.people.length === 0) && hasMultipleFilters) {
+    const payload2 = buildPayload(false);
+    console.log("APOLLO SEARCH (attempt 2 — relaxed, keywords as title):", payload2);
+    res = await doSearch(payload2);
+    if (!res.ok) {
+      handleApiError(res, await res.text());
+    }
+    data = await res.json();
+
+    // Attempt 3: if still 0 → try with just company (broadest)
+    if ((!data.people || data.people.length === 0) && companyName) {
+      const payload3: Record<string, unknown> = {
+        q_organization_name: companyName,
+        person_locations: personLocations,
+        page,
+        per_page,
+      };
+      console.log("APOLLO SEARCH (attempt 3 — company only):", payload3);
+      res = await doSearch(payload3);
+      if (!res.ok) {
+        handleApiError(res, await res.text());
+      }
+      data = await res.json();
+    }
+  }
+
+  console.log("APOLLO RESULTS:", data.people?.length ?? 0, "people");
 
   const people: ApolloPersonSummary[] = (data.people ?? []).map((p) => {
     const root = safeObj(p) ?? {};
