@@ -32,7 +32,74 @@ import type {
   SequenceTypeId,
   TargetSegment,
   StepType,
+  EmailVariant,
 } from "@/types/marketing";
+
+// ── Spintax utilities ────────────────────────────────────────────
+
+/** Resolve all {A|B|C} spintax in a string, picking random variants.
+ *  Preserves {{personalization}} variables intact. */
+function resolveSpintax(text: string): string {
+  // First protect {{variables}} by replacing with placeholders
+  const vars: string[] = [];
+  const protected_ = text.replace(/\{\{([^}]+)\}\}/g, (_m, v: string) => {
+    vars.push(v);
+    return `__VAR_${vars.length - 1}__`;
+  });
+  // Now resolve spintax {A|B|C}
+  const resolved = protected_.replace(/\{([^{}]+)\}/g, (_match, group: string) => {
+    const options = group.split("|");
+    if (options.length <= 1) return `{${group}}`; // not spintax, preserve
+    return options[Math.floor(Math.random() * options.length)];
+  });
+  // Restore {{variables}}
+  return resolved.replace(/__VAR_(\d+)__/g, (_m, idx: string) => `{{${vars[parseInt(idx)]}}}`);
+}
+
+/** Count how many unique spintax combinations exist */
+function countSpintaxVariations(text: string): number {
+  // Strip {{variables}} first so they don't get counted
+  const stripped = text.replace(/\{\{[^}]+\}\}/g, "");
+  let count = 1;
+  const regex = /\{([^{}]+)\}/g;
+  let m;
+  while ((m = regex.exec(stripped)) !== null) {
+    const options = m[1].split("|");
+    if (options.length > 1) count *= options.length;
+  }
+  return count;
+}
+
+/** Insert spintax at end of text (append) — simple and React-safe */
+function appendSpintax(currentText: string, snippet: string): string {
+  if (!currentText) return snippet;
+  if (currentText.endsWith("\n") || currentText.endsWith(" ")) return currentText + snippet;
+  return currentText + " " + snippet;
+}
+
+const VARIANT_LABELS = ["A", "B", "C", "D", "E"];
+const VARIANT_COLORS = [
+  "border-blue-300 bg-blue-50 text-blue-700",
+  "border-orange-300 bg-orange-50 text-orange-700",
+  "border-green-300 bg-green-50 text-green-700",
+  "border-purple-300 bg-purple-50 text-purple-700",
+  "border-pink-300 bg-pink-50 text-pink-700",
+];
+const VARIANT_TAB_ACTIVE = [
+  "bg-blue-600 text-white",
+  "bg-orange-600 text-white",
+  "bg-green-600 text-white",
+  "bg-purple-600 text-white",
+  "bg-pink-600 text-white",
+];
+
+const SPINTAX_SNIPPETS = [
+  { label: "Greeting", value: "{Hi|Hello|Hey}" },
+  { label: "CTA", value: "{Would you be open to|Could we schedule|Any interest in}" },
+  { label: "Timeframe", value: "{this week|next week|soon}" },
+  { label: "Meeting", value: "{a quick call|a brief chat|a 15-minute conversation}" },
+  { label: "Closing", value: "{Best|Cheers|Thanks|Regards}" },
+];
 
 // ── Constants ────────────────────────────────────────────────────
 
@@ -186,8 +253,9 @@ Thomas`,
 // Mock contact count based on segment + state count
 function estimateContacts(segments: TargetSegment[], states: string[]): number {
   if (segments.length === 0 || states.length === 0) return 0;
-  const segBase: Record<TargetSegment, number> = { distributors: 18, private_label: 12, top_50_priority: 8, custom: 15 };
-  const base = segments.reduce((sum, s) => sum + segBase[s], 0);
+  // Known legacy segments get hardcoded estimates; dynamic groups get 10 per group as placeholder
+  const segBase: Record<string, number> = { distributors: 18, private_label: 12, top_50_priority: 8, custom: 15 };
+  const base = segments.reduce((sum, s) => sum + (segBase[s] ?? 10), 0);
   return Math.round(base * states.length * (0.8 + Math.random() * 0.4));
 }
 
@@ -196,7 +264,7 @@ function getSeqTypeMeta(id: SequenceTypeId) {
 }
 
 function getSegmentLabel(id: TargetSegment) {
-  return SEGMENT_OPTIONS.find((s) => s.id === id)?.label ?? id;
+  return SEGMENT_OPTIONS.find((s) => s.id === id)?.label ?? id; // falls back to name itself (which is the label for dynamic groups)
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -248,6 +316,55 @@ function AddStepButton({ onAdd }: { onAdd: (type: StepType) => void }) {
   );
 }
 
+// ── Spintax Toolbar ─────────────────────────────────────────────
+
+function SpintaxToolbar({ text, onInsert }: { text: string; onInsert: (snippet: string) => void }) {
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewText, setPreviewText] = useState("");
+  const variations = countSpintaxVariations(text);
+  const hasSpintax = variations > 1;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Spintax:</span>
+      {SPINTAX_SNIPPETS.map((s) => (
+        <button key={s.label} type="button"
+          onClick={() => onInsert(s.value)}
+          className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 transition-colors"
+          title={`Insert: ${s.value}`}
+        >
+          {s.label}
+        </button>
+      ))}
+      {hasSpintax && (
+        <>
+          <span className="ml-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">
+            {variations} variations
+          </span>
+          <button type="button"
+            onClick={() => { setPreviewText(resolveSpintax(text)); setShowPreview(!showPreview); }}
+            className="rounded-md border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700 hover:bg-violet-100 transition-colors"
+          >
+            {showPreview ? "Hide" : "Preview"} random
+          </button>
+        </>
+      )}
+      {showPreview && previewText && (
+        <div className="mt-1 w-full rounded-lg border border-violet-200 bg-violet-50/50 p-2.5 text-xs text-violet-900 whitespace-pre-wrap">
+          <div className="mb-1 text-[10px] font-semibold uppercase text-violet-500">Random preview:</div>
+          {previewText}
+          <button type="button"
+            onClick={() => setPreviewText(resolveSpintax(text))}
+            className="ml-2 inline-flex items-center gap-1 text-[10px] font-medium text-violet-600 hover:text-violet-800"
+          >
+            <RefreshCw size={10} /> Shuffle
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Step Card ────────────────────────────────────────────────────
 
 function StepCard({
@@ -257,6 +374,8 @@ function StepCard({
   onChange: (u: SequenceStep) => void;
   onMoveUp: () => void; onMoveDown: () => void; onDelete: () => void;
 }) {
+  const [activeVariantIdx, setActiveVariantIdx] = useState(0);
+
   const iconMap: Record<StepType, React.ReactNode> = {
     email: <Mail size={16} className="text-blue-600" />,
     wait: <Clock size={16} className="text-amber-600" />,
@@ -265,6 +384,68 @@ function StepCard({
   const bgMap: Record<StepType, string> = {
     email: "bg-blue-50", wait: "bg-amber-50", condition: "bg-purple-50",
   };
+
+  // Get current variants (backwards compat: single subject/body → 1 variant)
+  const variants: EmailVariant[] = step.type === "email"
+    ? (step.variants && step.variants.length > 0
+      ? step.variants
+      : [{ id: "v_a", label: "A", subject: step.subject ?? "", body: step.body ?? "", templateFile: step.templateFile }])
+    : [];
+
+  const currentVariant = variants[activeVariantIdx] ?? variants[0];
+
+  // Sync variants back to step
+  function updateVariant(idx: number, partial: Partial<EmailVariant>) {
+    const updated = variants.map((v, i) => (i === idx ? { ...v, ...partial } : v));
+    // Also keep subject/body on step for backwards compat (first variant)
+    const first = idx === 0 ? { ...updated[0] } : updated[0];
+    onChange({
+      ...step,
+      variants: updated,
+      subject: first.subject,
+      body: first.body,
+      templateFile: first.templateFile,
+    });
+  }
+
+  function addVariant() {
+    if (variants.length >= 5) return;
+    const idx = variants.length;
+    const newVariant: EmailVariant = {
+      id: `v_${Date.now()}`,
+      label: VARIANT_LABELS[idx] ?? String(idx + 1),
+      subject: currentVariant?.subject ?? "",
+      body: "",
+    };
+    onChange({ ...step, variants: [...variants, newVariant] });
+    setActiveVariantIdx(idx);
+  }
+
+  function removeVariant(idx: number) {
+    if (variants.length <= 1) return;
+    const updated = variants.filter((_, i) => i !== idx).map((v, i) => ({ ...v, label: VARIANT_LABELS[i] ?? String(i + 1) }));
+    const newIdx = Math.min(activeVariantIdx, updated.length - 1);
+    setActiveVariantIdx(newIdx);
+    onChange({
+      ...step,
+      variants: updated,
+      subject: updated[0]?.subject ?? "",
+      body: updated[0]?.body ?? "",
+      templateFile: updated[0]?.templateFile,
+    });
+  }
+
+  function duplicateVariant() {
+    if (variants.length >= 5) return;
+    const idx = variants.length;
+    const dup: EmailVariant = {
+      ...currentVariant,
+      id: `v_${Date.now()}`,
+      label: VARIANT_LABELS[idx] ?? String(idx + 1),
+    };
+    onChange({ ...step, variants: [...variants, dup] });
+    setActiveVariantIdx(idx);
+  }
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -275,6 +456,11 @@ function StepCard({
           </span>
           <span className="text-sm font-semibold capitalize text-slate-800">{step.type} Step</span>
           <span className="text-xs text-slate-400">#{step.order + 1}</span>
+          {step.type === "email" && variants.length > 1 && (
+            <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700">
+              A/B Test · {variants.length} variants
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <button onClick={onMoveUp} disabled={step.order === 0} className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"><ChevronUp size={16} /></button>
@@ -284,11 +470,61 @@ function StepCard({
       </div>
 
       {step.type === "email" && (() => {
+        const variantSubject = currentVariant?.subject ?? "";
+        const variantBody = currentVariant?.body ?? "";
         const activeTemplate = EMAIL_TEMPLATES.find((t) =>
-          t.subject === step.subject && t.body === step.body
+          t.subject === variantSubject && t.body === variantBody
         );
+        const fullText = `${variantSubject}\n${variantBody}`;
+
         return (
           <div className="space-y-3">
+            {/* ── A/B Variant Tabs ── */}
+            <div className="flex items-center gap-1.5 border-b border-slate-100 pb-2">
+              {variants.map((v, i) => (
+                <div key={v.id} role="button" tabIndex={0}
+                  onClick={() => setActiveVariantIdx(i)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setActiveVariantIdx(i); }}
+                  className={`relative cursor-pointer rounded-t-lg px-3 py-1.5 text-xs font-bold transition-colors select-none ${
+                    i === activeVariantIdx
+                      ? VARIANT_TAB_ACTIVE[i % VARIANT_TAB_ACTIVE.length]
+                      : `border ${VARIANT_COLORS[i % VARIANT_COLORS.length]} hover:opacity-80`
+                  }`}
+                >
+                  Variant {v.label}
+                  {variants.length > 1 && i === activeVariantIdx && (
+                    <span role="button" tabIndex={0}
+                      onClick={(e) => { e.stopPropagation(); removeVariant(i); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); removeVariant(i); } }}
+                      className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-white/30 text-[10px] hover:bg-white/60 cursor-pointer"
+                    >×</span>
+                  )}
+                </div>
+              ))}
+              {variants.length < 5 && (
+                <div className="flex items-center gap-1 ml-1">
+                  <button type="button" onClick={addVariant}
+                    className="rounded-lg border border-dashed border-slate-300 px-2 py-1 text-[10px] font-medium text-slate-500 hover:border-orange-400 hover:bg-orange-50 hover:text-orange-700 transition-colors"
+                    title="Add A/B variant"
+                  >
+                    + Variant
+                  </button>
+                  <button type="button" onClick={duplicateVariant}
+                    className="rounded-lg border border-dashed border-slate-300 px-2 py-1 text-[10px] font-medium text-slate-500 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                    title="Duplicate current variant"
+                  >
+                    <Copy size={10} className="inline mr-0.5" />Duplicate
+                  </button>
+                </div>
+              )}
+              {variants.length > 1 && (
+                <span className="ml-auto text-[10px] text-slate-400">
+                  Instantly splits traffic evenly
+                </span>
+              )}
+            </div>
+
+            {/* ── Template selector + From ── */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-xs text-slate-400">
                 <Lock size={12} /><span>From: thomas@outreach.tbpauto.com</span>
@@ -297,7 +533,7 @@ function StepCard({
                 value={activeTemplate?.id ?? ""}
                 onChange={(e) => {
                   const tpl = EMAIL_TEMPLATES.find((t) => t.id === e.target.value);
-                  if (tpl) onChange({ ...step, subject: tpl.subject, body: tpl.body, templateFile: tpl.templateFile });
+                  if (tpl) updateVariant(activeVariantIdx, { subject: tpl.subject, body: tpl.body, templateFile: tpl.templateFile });
                 }}
                 className={`rounded-lg px-2.5 py-1.5 text-xs font-medium outline-none transition-colors ${
                   activeTemplate
@@ -320,12 +556,24 @@ function StepCard({
                 )}
               </div>
             )}
-            <input type="text" placeholder="Subject line..." value={step.subject ?? ""}
-              onChange={(e) => onChange({ ...step, subject: e.target.value })}
+
+            {/* ── Subject ── */}
+            <input type="text" placeholder="Subject line... Use {Option A|Option B} for spintax"
+              value={variantSubject}
+              onChange={(e) => updateVariant(activeVariantIdx, { subject: e.target.value })}
               className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
-            <textarea placeholder="Email body... Use {{first_name}}, {{company_name}} for personalization." rows={4} value={step.body ?? ""}
-              onChange={(e) => onChange({ ...step, body: e.target.value })}
+
+            {/* ── Body ── */}
+            <textarea
+              placeholder="Email body... Use {{first_name}}, {{company_name}} for personalization. Use {Hi|Hello|Hey} for spintax."
+              rows={4} value={variantBody}
+              onChange={(e) => updateVariant(activeVariantIdx, { body: e.target.value })}
               className="w-full resize-y rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
+
+            {/* ── Spintax Toolbar ── */}
+            <SpintaxToolbar text={fullText} onInsert={(snippet) => {
+              updateVariant(activeVariantIdx, { body: appendSpintax(variantBody, snippet) });
+            }} />
           </div>
         );
       })()}
@@ -542,6 +790,27 @@ export default function SequenceBuilder() {
   const [showPreview, setShowPreview] = useState(false);
   const [previewSequence, setPreviewSequence] = useState<Sequence | null>(null);
 
+  // ── Contact Groups (dynamic segments) ─────────────────────────
+  const [contactGroups, setContactGroups] = useState<{ id: string; name: string; color: string }[]>([]);
+
+  useEffect(() => {
+    fetch("/api/marketing-crm/contact-groups")
+      .then((r) => r.json())
+      .then((json) => {
+        const groups = (json.data ?? []).map((g: { id: string; name: string; color: string }) => ({
+          id: g.name, // use name as segment ID for readability in Airtable
+          name: g.name,
+          color: g.color,
+        }));
+        setContactGroups(groups);
+      })
+      .catch(() => {});
+  }, []);
+
+  const segmentOptions = contactGroups.length > 0
+    ? contactGroups.map((g) => ({ id: g.id as TargetSegment, label: g.name }))
+    : SEGMENT_OPTIONS; // fallback to hardcoded if no groups yet
+
   // ── Fetch ────────────────────────────────────────────────────
   const fetchSequences = useCallback(async () => {
     try {
@@ -720,10 +989,14 @@ export default function SequenceBuilder() {
           // Find wait step before this email (if any)
           const prevSteps = showDeployModal.steps.slice(0, showDeployModal.steps.findIndex((s) => s.id === step.id));
           const lastWait = [...prevSteps].reverse().find((s) => s.type === "wait");
+          // Build variants array — supports A/B testing
+          const stepVariants = (step.variants && step.variants.length > 0)
+            ? step.variants.map((v) => ({ subject: v.subject || "", body: v.body || "" }))
+            : [{ subject: step.subject || "", body: step.body || "" }];
           return {
             delay: i === 0 ? 0 : (lastWait?.wait_days ?? 3),
             delay_unit: "day",
-            variants: [{ subject: step.subject || "", body: step.body || "" }],
+            variants: stepVariants,
           };
         });
 
@@ -937,7 +1210,7 @@ export default function SequenceBuilder() {
             {/* Target Segments */}
             <div className="md:col-span-2">
               <MultiPill<TargetSegment>
-                options={SEGMENT_OPTIONS}
+                options={segmentOptions}
                 selected={activeSequence.target_segments}
                 onChange={(v) => updateTargeting({ target_segments: v })}
                 label="Target Segments *"
@@ -1043,6 +1316,18 @@ export default function SequenceBuilder() {
             <span className="text-slate-500">Email Steps</span>
             <span className="text-slate-700">{showDeployModal.steps.filter((s) => s.type === "email").length}</span>
           </div>
+          {(() => {
+            const abSteps = showDeployModal.steps.filter((s) => s.type === "email" && s.variants && s.variants.length > 1);
+            return abSteps.length > 0 ? (
+              <div className="flex justify-between">
+                <span className="text-slate-500">A/B Tests</span>
+                <span className="flex items-center gap-1.5 text-orange-700">
+                  <span className="rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold">A/B</span>
+                  {abSteps.length} step{abSteps.length > 1 ? "s" : ""} with {abSteps.reduce((s, st) => s + (st.variants?.length ?? 1), 0)} variants
+                </span>
+              </div>
+            ) : null;
+          })()}
           <div className="flex justify-between">
             <span className="text-slate-500">Target</span>
             <span className="text-slate-700">

@@ -28,7 +28,15 @@ export type SequenceStatus = "draft" | "pending_approval" | "approved" | "active
 export type StepType = "email" | "wait" | "condition";
 
 export type SequenceTypeId = "cold_instantly" | "priority_instantly" | "nurture_instantly";
-export type TargetSegment = "distributors" | "private_label" | "top_50_priority" | "custom";
+export type TargetSegment = string; // Dynamic — group IDs from Airtable Contact Groups table
+
+export interface EmailVariant {
+  id: string;
+  label: string;           // "A", "B", "C"...
+  subject: string;
+  body: string;
+  templateFile?: string;
+}
 
 export interface SequenceStep {
   id: string;
@@ -37,6 +45,7 @@ export interface SequenceStep {
   subject?: string;
   body?: string;
   templateFile?: string;
+  variants?: EmailVariant[];   // A/B testing: multiple variants per email step
   wait_days?: number;
   condition?: string;
 }
@@ -119,7 +128,7 @@ export interface ApprovalSequenceDetail {
   target_states: string[];
   estimated_contacts: number;
   send_from_domain: string;
-  steps: { type: StepType; subject?: string; body?: string; wait_days?: number; condition?: string }[];
+  steps: { type: StepType; subject?: string; body?: string; wait_days?: number; condition?: string; variants?: EmailVariant[] }[];
 }
 
 export interface ApprovalItem {

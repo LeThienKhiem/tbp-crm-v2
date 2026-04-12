@@ -18,16 +18,54 @@ import {
   Briefcase,
   Building2,
   AlertCircle,
+  Plus,
+  Tag,
+  Trash2,
+  Edit3,
+  FolderOpen,
 } from "lucide-react";
 import type { Contact, ContactStatus } from "@/types/marketing";
 
+// ── Contact Group type ──────────────────────────────────────────
+interface ContactGroup {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  contact_count: number;
+  created_by: string;
+  created_at: string;
+}
+
 // ── Color maps ───────────────────────────────────────────────────
-const TAG_COLORS: Record<string, string> = {
-  fleet: "bg-blue-50 text-blue-700 ring-blue-600/20",
-  oem: "bg-purple-50 text-purple-700 ring-purple-600/20",
-  aftermarket: "bg-green-50 text-green-700 ring-green-600/20",
-  "high-priority": "bg-red-50 text-red-700 ring-red-600/20",
+const GROUP_COLOR_MAP: Record<string, string> = {
+  blue: "bg-blue-50 text-blue-700 ring-blue-600/20",
+  green: "bg-green-50 text-green-700 ring-green-600/20",
+  red: "bg-red-50 text-red-700 ring-red-600/20",
+  purple: "bg-purple-50 text-purple-700 ring-purple-600/20",
+  orange: "bg-orange-50 text-orange-700 ring-orange-600/20",
+  pink: "bg-pink-50 text-pink-700 ring-pink-600/20",
+  teal: "bg-teal-50 text-teal-700 ring-teal-600/20",
+  yellow: "bg-yellow-50 text-yellow-700 ring-yellow-600/20",
+  gray: "bg-slate-50 text-slate-600 ring-slate-500/20",
 };
+
+const GROUP_COLOR_OPTIONS = [
+  { id: "blue", label: "Blue", dot: "bg-blue-500" },
+  { id: "green", label: "Green", dot: "bg-green-500" },
+  { id: "red", label: "Red", dot: "bg-red-500" },
+  { id: "purple", label: "Purple", dot: "bg-purple-500" },
+  { id: "orange", label: "Orange", dot: "bg-orange-500" },
+  { id: "pink", label: "Pink", dot: "bg-pink-500" },
+  { id: "teal", label: "Teal", dot: "bg-teal-500" },
+  { id: "yellow", label: "Yellow", dot: "bg-yellow-500" },
+  { id: "gray", label: "Gray", dot: "bg-slate-400" },
+];
+
+function getGroupStyle(groups: ContactGroup[], tagName: string): string {
+  const group = groups.find((g) => g.name.toLowerCase() === tagName.toLowerCase());
+  return GROUP_COLOR_MAP[group?.color ?? "gray"] ?? GROUP_COLOR_MAP.gray;
+}
 
 const STATUS_COLORS: Record<ContactStatus, string> = {
   new: "bg-slate-50 text-slate-700 ring-slate-600/20",
@@ -144,6 +182,16 @@ export default function ContactHub() {
   const [detailContact, setDetailContact] = useState<Contact | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
+  // ── Contact Groups state ───────────────────────────────────────
+  const [groups, setGroups] = useState<ContactGroup[]>([]);
+  const [showGroupManager, setShowGroupManager] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupDesc, setNewGroupDesc] = useState("");
+  const [newGroupColor, setNewGroupColor] = useState("blue");
+  const [editingGroup, setEditingGroup] = useState<ContactGroup | null>(null);
+  const [showGroupAssign, setShowGroupAssign] = useState(false);
+  const [assignChecked, setAssignChecked] = useState<Set<string>>(new Set());
+
   // ── Apollo search state ────────────────────────────────────────
   const [showApollo, setShowApollo] = useState(false);
   const [apolloQuery, setApolloQuery] = useState("");
@@ -174,14 +222,113 @@ export default function ContactHub() {
     }
   }, []);
 
-  useEffect(() => { fetchContacts(); }, [fetchContacts]);
+  // ── Fetch groups ───────────────────────────────────────────────
+  const fetchGroups = useCallback(async () => {
+    try {
+      const res = await fetch("/api/marketing-crm/contact-groups");
+      if (!res.ok) return;
+      const json = await res.json();
+      setGroups(json.data ?? []);
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => { fetchContacts(); fetchGroups(); }, [fetchContacts, fetchGroups]);
+
+  // ── Group CRUD ────────────────────────────────────────────────
+  async function handleCreateGroup() {
+    if (!newGroupName.trim()) return;
+    try {
+      const res = await fetch("/api/marketing-crm/contact-groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newGroupName.trim(), description: newGroupDesc, color: newGroupColor }),
+      });
+      if (!res.ok) throw new Error();
+      setNewGroupName(""); setNewGroupDesc(""); setNewGroupColor("blue");
+      fetchGroups();
+      setToast({ message: `Group "${newGroupName.trim()}" created`, type: "success" });
+    } catch {
+      setToast({ message: "Failed to create group", type: "error" });
+    }
+  }
+
+  async function handleUpdateGroup() {
+    if (!editingGroup) return;
+    try {
+      const res = await fetch("/api/marketing-crm/contact-groups", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingGroup.id, name: editingGroup.name, description: editingGroup.description, color: editingGroup.color }),
+      });
+      if (!res.ok) throw new Error();
+      setEditingGroup(null);
+      fetchGroups();
+      setToast({ message: "Group updated", type: "success" });
+    } catch {
+      setToast({ message: "Failed to update group", type: "error" });
+    }
+  }
+
+  async function handleDeleteGroup(g: ContactGroup) {
+    if (!confirm(`Delete group "${g.name}"? Contacts won't be deleted.`)) return;
+    try {
+      const res = await fetch(`/api/marketing-crm/contact-groups?id=${g.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      fetchGroups();
+      setToast({ message: `Group "${g.name}" deleted`, type: "success" });
+    } catch {
+      setToast({ message: "Failed to delete group", type: "error" });
+    }
+  }
+
+  // ── Assign groups to selected contacts ────────────────────────
+  async function handleAssignGroups(groupNames: string[]) {
+    const selected = contacts.filter((c) => selectedIds.has(c.id));
+    if (selected.length === 0) return;
+    try {
+      // For each selected contact, merge new groups into existing tags
+      const updates = selected.map((c) => {
+        const existingTags = new Set(c.tags);
+        groupNames.forEach((g) => existingTags.add(g));
+        return { id: c.id, fields: { tags: Array.from(existingTags) } };
+      });
+      const res = await fetch("/api/marketing-crm/contacts/update", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ updates }),
+      });
+      if (!res.ok) throw new Error();
+      setShowGroupAssign(false);
+      setSelectedIds(new Set());
+      fetchContacts();
+      setToast({ message: `${selected.length} contacts updated with groups`, type: "success" });
+    } catch {
+      setToast({ message: "Failed to assign groups", type: "error" });
+    }
+  }
+
+  async function handleRemoveGroup(contact: Contact, groupName: string) {
+    try {
+      const newTags = contact.tags.filter((t) => t !== groupName);
+      const res = await fetch("/api/marketing-crm/contacts/update", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ updates: [{ id: contact.id, fields: { tags: newTags } }] }),
+      });
+      if (!res.ok) throw new Error();
+      fetchContacts();
+      if (detailContact?.id === contact.id) setDetailContact({ ...contact, tags: newTags });
+    } catch {
+      setToast({ message: "Failed to remove group", type: "error" });
+    }
+  }
 
   // ── Filtering ──────────────────────────────────────────────────
   const filtered = useMemo(() => contacts.filter((c) => {
     const term = searchTerm.toLowerCase();
     const matchesSearch = !term || `${c.first_name} ${c.last_name}`.toLowerCase().includes(term) || c.company.toLowerCase().includes(term) || c.email.toLowerCase().includes(term);
     const matchesStatus = statusFilter === "all" || c.status === statusFilter;
-    const matchesTag = tagFilter === "all" || c.tags.includes(tagFilter);
+    const matchesTag = tagFilter === "all" || (tagFilter === "__untagged__" ? c.tags.length === 0 : c.tags.some((t) => t.toLowerCase() === tagFilter.toLowerCase()));
     return matchesSearch && matchesStatus && matchesTag;
   }), [contacts, searchTerm, statusFilter, tagFilter]);
 
@@ -379,14 +526,28 @@ export default function ContactHub() {
         <div className="relative">
           <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}
             className="appearance-none rounded-lg border border-slate-300 px-3 py-2.5 pr-8 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
-            <option value="all">All Tags</option>
-            <option value="fleet">Fleet</option>
-            <option value="oem">OEM</option>
-            <option value="aftermarket">Aftermarket</option>
-            <option value="high-priority">High Priority</option>
+            <option value="all">All Groups</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.name}>{g.name}</option>
+            ))}
+            <option value="__untagged__">— No Group —</option>
           </select>
           <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         </div>
+
+        <button onClick={() => setShowGroupManager(!showGroupManager)}
+          className={`flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${showGroupManager ? "bg-teal-600 text-white" : "bg-white text-teal-700 ring-1 ring-inset ring-teal-300 hover:bg-teal-50"}`}>
+          <FolderOpen className="h-4 w-4" />
+          Groups
+        </button>
+
+        {selectedIds.size > 0 && (
+          <button onClick={() => setShowGroupAssign(true)}
+            className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm font-medium text-indigo-700 ring-1 ring-inset ring-indigo-300 hover:bg-indigo-50">
+            <Tag className="h-4 w-4" />
+            Assign Group ({selectedIds.size})
+          </button>
+        )}
 
         <button onClick={() => setShowApollo(!showApollo)}
           className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${showApollo ? "bg-purple-600 text-white hover:bg-purple-700" : "bg-white text-purple-700 ring-1 ring-inset ring-purple-300 hover:bg-purple-50"}`}>
@@ -548,6 +709,130 @@ export default function ContactHub() {
         </div>
       )}
 
+      {/* ── Group Manager Panel ────────────────────────────────── */}
+      {showGroupManager && (
+        <div className="rounded-xl border border-teal-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FolderOpen className="h-5 w-5 text-teal-600" />
+              <h3 className="text-sm font-semibold text-slate-900">Contact Groups</h3>
+              <span className="rounded-full bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-700">{groups.length}</span>
+            </div>
+            <button onClick={() => setShowGroupManager(false)} className="rounded-lg p-1 hover:bg-slate-100">
+              <X className="h-4 w-4 text-slate-400" />
+            </button>
+          </div>
+
+          {/* Create new group */}
+          <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="flex-1 min-w-[160px]">
+              <label className="mb-1 block text-xs font-medium text-slate-600">Group Name *</label>
+              <input value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} placeholder="e.g. Distributors TX"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20" />
+            </div>
+            <div className="flex-1 min-w-[160px]">
+              <label className="mb-1 block text-xs font-medium text-slate-600">Description</label>
+              <input value={newGroupDesc} onChange={(e) => setNewGroupDesc(e.target.value)} placeholder="Optional note"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20" />
+            </div>
+            <div className="w-[120px]">
+              <label className="mb-1 block text-xs font-medium text-slate-600">Color</label>
+              <select value={newGroupColor} onChange={(e) => setNewGroupColor(e.target.value)}
+                className="w-full appearance-none rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-500">
+                {GROUP_COLOR_OPTIONS.map((c) => (
+                  <option key={c.id} value={c.id}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <button onClick={handleCreateGroup} disabled={!newGroupName.trim()}
+              className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50">
+              <Plus className="h-4 w-4" /> Create
+            </button>
+          </div>
+
+          {/* Group list */}
+          {groups.length === 0 ? (
+            <p className="py-4 text-center text-sm text-slate-400">No groups yet. Create your first group above.</p>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {groups.map((g) => {
+                const contactsInGroup = contacts.filter((c) => c.tags.some((t) => t.toLowerCase() === g.name.toLowerCase())).length;
+                return editingGroup?.id === g.id ? (
+                  <div key={g.id} className="rounded-lg border-2 border-teal-300 bg-teal-50 p-3 space-y-2">
+                    <input value={editingGroup.name} onChange={(e) => setEditingGroup({ ...editingGroup, name: e.target.value })}
+                      className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm text-slate-900" />
+                    <input value={editingGroup.description} onChange={(e) => setEditingGroup({ ...editingGroup, description: e.target.value })}
+                      placeholder="Description" className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm text-slate-900" />
+                    <select value={editingGroup.color} onChange={(e) => setEditingGroup({ ...editingGroup, color: e.target.value })}
+                      className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
+                      {GROUP_COLOR_OPTIONS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+                    </select>
+                    <div className="flex gap-2">
+                      <button onClick={handleUpdateGroup} className="rounded bg-teal-600 px-3 py-1 text-xs font-medium text-white hover:bg-teal-700">Save</button>
+                      <button onClick={() => setEditingGroup(null)} className="rounded bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-300">Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div key={g.id} className="group flex items-center justify-between rounded-lg border border-slate-200 bg-white p-3 hover:border-slate-300">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className={`inline-block h-3 w-3 rounded-full ${GROUP_COLOR_OPTIONS.find((c) => c.id === g.color)?.dot ?? "bg-slate-400"}`} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-900 truncate">{g.name}</p>
+                        {g.description && <p className="text-xs text-slate-400 truncate">{g.description}</p>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{contactsInGroup}</span>
+                      <button onClick={() => setEditingGroup(g)} className="hidden rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 group-hover:block">
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => handleDeleteGroup(g)} className="hidden rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500 group-hover:block">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Assign Group Modal ─────────────────────────────────── */}
+      {showGroupAssign && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="mb-1 text-lg font-semibold text-slate-900">Assign Groups</h3>
+            <p className="mb-4 text-sm text-slate-500">{selectedIds.size} contact{selectedIds.size > 1 ? "s" : ""} selected. Choose groups to assign:</p>
+            {groups.length === 0 ? (
+              <p className="py-6 text-center text-sm text-slate-400">No groups created yet. Open the Groups panel to create one.</p>
+            ) : (
+              <div className="mb-4 max-h-[300px] space-y-2 overflow-y-auto">
+                {groups.map((g) => (
+                  <label key={g.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5 hover:bg-slate-50">
+                    <input type="checkbox" checked={assignChecked.has(g.name)}
+                      onChange={(e) => { const s = new Set(assignChecked); if (e.target.checked) s.add(g.name); else s.delete(g.name); setAssignChecked(s); }}
+                      className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
+                    <span className={`inline-block h-3 w-3 rounded-full ${GROUP_COLOR_OPTIONS.find((c) => c.id === g.color)?.dot ?? "bg-slate-400"}`} />
+                    <span className="text-sm font-medium text-slate-700">{g.name}</span>
+                    {g.description && <span className="text-xs text-slate-400">— {g.description}</span>}
+                  </label>
+                ))}
+              </div>
+            )}
+            <div className="flex justify-end gap-3">
+              <button onClick={() => { setShowGroupAssign(false); setAssignChecked(new Set()); }}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+              <button disabled={groups.length === 0 || assignChecked.size === 0}
+                onClick={() => { handleAssignGroups(Array.from(assignChecked)); setAssignChecked(new Set()); }}
+                className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50">
+                Assign {assignChecked.size > 0 ? `(${assignChecked.size})` : ""}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Contact table (md+) */}
       {loading ? (
         <div className="flex items-center justify-center py-20 text-sm text-slate-500">
@@ -586,7 +871,7 @@ export default function ContactHub() {
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
                         {c.tags.map((t) => (
-                          <span key={t} className={`rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${TAG_COLORS[t] ?? "bg-slate-50 text-slate-600 ring-slate-500/20"}`}>{t}</span>
+                          <span key={t} className={`rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${getGroupStyle(groups, t)}`}>{t}</span>
                         ))}
                       </div>
                     </td>
@@ -617,7 +902,7 @@ export default function ContactHub() {
                 <p className="mt-1 text-sm text-slate-500">{c.email}</p>
                 <div className="mt-2 flex flex-wrap gap-1">
                   {c.tags.map((t) => (
-                    <span key={t} className={`rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${TAG_COLORS[t] ?? "bg-slate-50 text-slate-600 ring-slate-500/20"}`}>{t}</span>
+                    <span key={t} className={`rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${getGroupStyle(groups, t)}`}>{t}</span>
                   ))}
                 </div>
               </div>
@@ -679,7 +964,7 @@ export default function ContactHub() {
               <div className="flex flex-wrap gap-1.5">
                 <span className={`rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${STATUS_COLORS[detailContact.status]}`}>{STATUS_LABELS[detailContact.status]}</span>
                 {detailContact.tags.map((t) => (
-                  <span key={t} className={`rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${TAG_COLORS[t] ?? "bg-slate-50 text-slate-600 ring-slate-500/20"}`}>{t}</span>
+                  <span key={t} className={`rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${getGroupStyle(groups, t)}`}>{t}</span>
                 ))}
               </div>
               <div className="space-y-3 text-sm">
