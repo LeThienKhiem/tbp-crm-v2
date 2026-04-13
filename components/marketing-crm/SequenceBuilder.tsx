@@ -698,17 +698,23 @@ function StepCard({
             )}
 
             {/* ── Subject ── */}
-            <input type="text" placeholder="Subject line... Use {Option A|Option B} for spintax"
-              value={variantSubject}
-              onChange={(e) => updateVariant(activeVariantIdx, { subject: e.target.value })}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Email Subject <span className="text-red-500">*</span></label>
+              <input type="text" placeholder="Subject line... Use {Option A|Option B} for spintax"
+                value={variantSubject}
+                onChange={(e) => updateVariant(activeVariantIdx, { subject: e.target.value })}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
+            </div>
 
             {/* ── Body ── */}
-            <textarea
-              placeholder="Email body... Use {{first_name}}, {{company_name}} for personalization. Use {Hi|Hello|Hey} for spintax."
-              rows={4} value={variantBody}
-              onChange={(e) => updateVariant(activeVariantIdx, { body: e.target.value })}
-              className="w-full resize-y rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">Email Body <span className="text-red-500">*</span></label>
+              <textarea
+                placeholder="Email body... Use {{first_name}}, {{company_name}} for personalization. Use {Hi|Hello|Hey} for spintax."
+                rows={4} value={variantBody}
+                onChange={(e) => updateVariant(activeVariantIdx, { body: e.target.value })}
+                className="w-full resize-y rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
+            </div>
 
             {/* ── Spintax Toolbar ── */}
             {/* ── Spintax Toolbar + Send Test ── */}
@@ -752,7 +758,7 @@ function MultiPill<T extends string>({
   options, selected, onChange, label,
 }: {
   options: { id: T; label: string }[]; selected: T[];
-  onChange: (v: T[]) => void; label: string;
+  onChange: (v: T[]) => void; label: React.ReactNode;
 }) {
   const toggle = (id: T) => {
     onChange(selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id]);
@@ -816,7 +822,7 @@ function StateMultiSelect({
   return (
     <div className="relative">
       <label className="mb-1.5 block text-sm font-medium text-slate-700">
-        Target States * <span className="font-normal text-slate-400">({selected.length} selected)</span>
+        Target States <span className="text-red-500">*</span> <span className="font-normal text-slate-400">({selected.length} selected)</span>
       </label>
 
       {/* Trigger */}
@@ -1055,8 +1061,24 @@ export default function SequenceBuilder() {
 
   function openSubmitModal() {
     if (!activeSequence) return;
-    if (activeSequence.target_segments.length === 0) { showToastMsg("Select at least one target segment"); return; }
-    if (activeSequence.target_states.length === 0) { showToastMsg("Select at least one target state"); return; }
+    const errors: string[] = [];
+    if (!activeSequence.name?.trim()) errors.push("Sequence name is required");
+    if (activeSequence.target_segments.length === 0) errors.push("Select at least one target segment");
+    if (activeSequence.target_states.length === 0) errors.push("Select at least one target state");
+    const emailSteps = activeSequence.steps.filter(s => s.type === "email");
+    if (emailSteps.length === 0) errors.push("Add at least one email step");
+    for (let i = 0; i < emailSteps.length; i++) {
+      const step = emailSteps[i];
+      const variants = step.variants && step.variants.length > 0 ? step.variants : [{ subject: step.subject || "", body: step.body || "" }];
+      for (let v = 0; v < variants.length; v++) {
+        if (!variants[v].subject?.trim()) errors.push(`Email step ${i+1}${variants.length > 1 ? ` variant ${String.fromCharCode(65+v)}` : ""}: subject is required`);
+        if (!variants[v].body?.trim()) errors.push(`Email step ${i+1}${variants.length > 1 ? ` variant ${String.fromCharCode(65+v)}` : ""}: body is required`);
+      }
+    }
+    if (errors.length > 0) {
+      showToastMsg(errors[0] + (errors.length > 1 ? ` (+${errors.length - 1} more)` : ""));
+      return;
+    }
     setShowSubmitModal(true);
   }
 
@@ -1074,7 +1096,10 @@ export default function SequenceBuilder() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updated),
       });
-      if (!res.ok) { showToastMsg("Failed to submit"); return; }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Save failed (${res.status})`);
+      }
       const seqJson = await res.json();
       const savedSeq = seqJson.data ?? updated;
       const seqRecordId = savedSeq._recordId ?? savedSeq.id ?? updated.id;
@@ -1105,11 +1130,15 @@ export default function SequenceBuilder() {
           })),
         },
       };
-      await fetch("/api/marketing-crm/approvals", {
+      const approvalRes = await fetch("/api/marketing-crm/approvals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(approvalItem),
       });
+      if (!approvalRes.ok) {
+        const err = await approvalRes.json().catch(() => ({}));
+        throw new Error(err.error || `Approval creation failed (${approvalRes.status})`);
+      }
 
       setSequences((prev) => {
         const idx = prev.findIndex((s) => s.id === updated.id);
@@ -1118,8 +1147,8 @@ export default function SequenceBuilder() {
       setActiveSequence(updated);
       setShowSubmitModal(false);
       showToastMsg("Submitted for approval");
-    } catch {
-      showToastMsg("Failed to submit");
+    } catch (e) {
+      showToastMsg(`Error: ${e instanceof Error ? e.message : "Submit failed"}`);
     }
   }
 
@@ -1309,12 +1338,18 @@ export default function SequenceBuilder() {
           <ArrowLeft size={16} /> Back to sequences
         </button>
 
+        {/* Required fields legend */}
+        <p className="text-xs text-slate-500">Fields marked with <span className="text-red-500">*</span> are required.</p>
+
         {/* Name + Description */}
         <div className="space-y-3">
-          <input type="text" value={activeSequence.name}
-            onChange={(e) => setActiveSequence({ ...activeSequence, name: e.target.value })}
-            className="w-full border-none bg-transparent text-xl font-semibold text-slate-900 outline-none placeholder:text-slate-400"
-            placeholder="Sequence name..." />
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Sequence Name <span className="text-red-500">*</span></label>
+            <input type="text" value={activeSequence.name}
+              onChange={(e) => setActiveSequence({ ...activeSequence, name: e.target.value })}
+              className="w-full border-none bg-transparent text-xl font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+              placeholder="Sequence name..." />
+          </div>
           <textarea value={activeSequence.description ?? ""}
             onChange={(e) => setActiveSequence({ ...activeSequence, description: e.target.value })}
             rows={2} placeholder="Brief description of this sequence..."
@@ -1329,7 +1364,7 @@ export default function SequenceBuilder() {
           <div className="grid gap-5 md:grid-cols-2">
             {/* Sequence Type */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">Sequence Type *</label>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700">Sequence Type <span className="text-red-500">*</span></label>
               <select value={activeSequence.sequence_type}
                 onChange={(e) => updateTargeting({ sequence_type: e.target.value as SequenceTypeId })}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
@@ -1359,7 +1394,7 @@ export default function SequenceBuilder() {
                 options={segmentOptions}
                 selected={activeSequence.target_segments}
                 onChange={(v) => updateTargeting({ target_segments: v })}
-                label="Target Segments *"
+                label={<>Target Segments <span className="text-red-500">*</span></>}
               />
             </div>
 

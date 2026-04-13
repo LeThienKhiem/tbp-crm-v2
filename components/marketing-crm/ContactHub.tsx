@@ -24,6 +24,10 @@ import {
   Edit3,
   FolderOpen,
   Clock,
+  Eye,
+  UserPlus,
+  UserMinus,
+  ChevronRight,
 } from "lucide-react";
 import type { Contact, ContactStatus } from "@/types/marketing";
 import ActivityTimeline from "./ActivityTimeline";
@@ -233,6 +237,11 @@ export default function ContactHub() {
   const [editingGroup, setEditingGroup] = useState<ContactGroup | null>(null);
   const [showGroupAssign, setShowGroupAssign] = useState(false);
   const [assignChecked, setAssignChecked] = useState<Set<string>>(new Set());
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
+  const [showAddMembersFor, setShowAddMembersFor] = useState<ContactGroup | null>(null);
+  const [addMemberSearch, setAddMemberSearch] = useState("");
+  const [addMemberChecked, setAddMemberChecked] = useState<Set<string>>(new Set());
+  const [seedingDefaults, setSeedingDefaults] = useState(false);
 
   // ── Apollo search state ────────────────────────────────────────
   const [showApollo, setShowApollo] = useState(false);
@@ -362,6 +371,77 @@ export default function ContactHub() {
       if (detailContact?.id === contact.id) setDetailContact({ ...contact, tags: newTags });
     } catch {
       setToast({ message: "Failed to remove group", type: "error" });
+    }
+  }
+
+  // ── Seed default groups ────────────────────────────────────────
+  const DEFAULT_GROUPS = [
+    { name: "Distributors", description: "Distribution channel partners", color: "blue" },
+    { name: "Fleet Operators", description: "Fleet management companies", color: "green" },
+    { name: "OEM Partners", description: "Original equipment manufacturers", color: "purple" },
+    { name: "Private Label", description: "White-label product partners", color: "orange" },
+    { name: "Top 50 Priority", description: "Highest priority prospects", color: "red" },
+    { name: "Trade Show Leads", description: "Contacts from trade shows", color: "yellow" },
+  ];
+
+  async function handleSeedDefaults() {
+    setSeedingDefaults(true);
+    try {
+      for (const g of DEFAULT_GROUPS) {
+        await fetch("/api/marketing-crm/contact-groups", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(g),
+        });
+      }
+      await fetchGroups();
+      setToast({ message: "6 default groups created", type: "success" });
+    } catch {
+      setToast({ message: "Failed to seed default groups", type: "error" });
+    } finally {
+      setSeedingDefaults(false);
+    }
+  }
+
+  // ── Add members to a group ────────────────────────────────────
+  async function handleAddMembersToGroup(group: ContactGroup, contactIds: string[]) {
+    if (contactIds.length === 0) return;
+    try {
+      const updates = contactIds.map((id) => {
+        const c = contacts.find((x) => x.id === id);
+        const existingTags = new Set(c?.tags ?? []);
+        existingTags.add(group.name);
+        return { id, fields: { tags: Array.from(existingTags) } };
+      });
+      const res = await fetch("/api/marketing-crm/contacts/update", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ updates }),
+      });
+      if (!res.ok) throw new Error();
+      setShowAddMembersFor(null);
+      setAddMemberChecked(new Set());
+      setAddMemberSearch("");
+      fetchContacts();
+      setToast({ message: `${contactIds.length} contact(s) added to "${group.name}"`, type: "success" });
+    } catch {
+      setToast({ message: "Failed to add contacts to group", type: "error" });
+    }
+  }
+
+  async function handleRemoveMemberFromGroup(contact: Contact, group: ContactGroup) {
+    try {
+      const newTags = contact.tags.filter((t) => t.toLowerCase() !== group.name.toLowerCase());
+      const res = await fetch("/api/marketing-crm/contacts/update", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ updates: [{ id: contact.id, fields: { tags: newTags } }] }),
+      });
+      if (!res.ok) throw new Error();
+      fetchContacts();
+      if (detailContact?.id === contact.id) setDetailContact({ ...contact, tags: newTags });
+    } catch {
+      setToast({ message: "Failed to remove contact from group", type: "error" });
     }
   }
 
@@ -820,7 +900,7 @@ export default function ContactHub() {
           </div>
 
           {/* Create new group */}
-          <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <div id="group-create-form" className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
             <div className="flex-1 min-w-[160px]">
               <label className="mb-1 block text-xs font-medium text-slate-600">Group Name *</label>
               <input value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} placeholder="e.g. Distributors TX"
@@ -848,11 +928,31 @@ export default function ContactHub() {
 
           {/* Group list */}
           {groups.length === 0 ? (
-            <p className="py-4 text-center text-sm text-slate-400">No groups yet. Create your first group above.</p>
+            <div className="flex flex-col items-center justify-center py-10">
+              <div className="mb-3 rounded-full bg-slate-100 p-3">
+                <FolderOpen className="h-8 w-8 text-slate-400" />
+              </div>
+              <h4 className="mb-1 text-sm font-semibold text-slate-700">No groups yet</h4>
+              <p className="mb-4 max-w-xs text-center text-xs text-slate-400">Groups help you segment contacts for targeted campaigns</p>
+              <div className="flex items-center gap-3">
+                <button onClick={() => document.getElementById("group-create-form")?.scrollIntoView({ behavior: "smooth" })}
+                  className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                  <Plus className="h-3.5 w-3.5" /> Create Custom Group
+                </button>
+                <button onClick={handleSeedDefaults} disabled={seedingDefaults}
+                  className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2 text-xs font-medium text-white hover:bg-teal-700 disabled:opacity-50">
+                  {seedingDefaults ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
+                  Seed 6 Defaults
+                </button>
+              </div>
+            </div>
           ) : (
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-2">
               {groups.map((g) => {
-                const contactsInGroup = contacts.filter((c) => c.tags.some((t) => t.toLowerCase() === g.name.toLowerCase())).length;
+                const membersOfGroup = contacts.filter((c) => c.tags.some((t) => t.toLowerCase() === g.name.toLowerCase()));
+                const contactsInGroup = membersOfGroup.length;
+                const isExpanded = expandedGroupId === g.id;
+
                 return editingGroup?.id === g.id ? (
                   <div key={g.id} className="rounded-lg border-2 border-teal-300 bg-teal-50 p-3 space-y-2">
                     <input value={editingGroup.name} onChange={(e) => setEditingGroup({ ...editingGroup, name: e.target.value })}
@@ -869,23 +969,74 @@ export default function ContactHub() {
                     </div>
                   </div>
                 ) : (
-                  <div key={g.id} className="group flex items-center justify-between rounded-lg border border-slate-200 bg-white p-3 hover:border-slate-300">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className={`inline-block h-3 w-3 rounded-full ${GROUP_COLOR_OPTIONS.find((c) => c.id === g.color)?.dot ?? "bg-slate-400"}`} />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-900 truncate">{g.name}</p>
-                        {g.description && <p className="text-xs text-slate-400 truncate">{g.description}</p>}
+                  <div key={g.id} className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+                    {/* Group header row */}
+                    <div className="flex items-center justify-between p-3 hover:bg-slate-50 transition-colors">
+                      <button onClick={() => setExpandedGroupId(isExpanded ? null : g.id)}
+                        className="flex items-center gap-2.5 min-w-0 flex-1 text-left">
+                        <ChevronRight className={`h-4 w-4 text-slate-400 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                        <span className={`inline-block h-3 w-3 rounded-full flex-shrink-0 ${GROUP_COLOR_OPTIONS.find((c) => c.id === g.color)?.dot ?? "bg-slate-400"}`} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-900 truncate">{g.name}</p>
+                          {g.description && <p className="text-xs text-slate-400 truncate">{g.description}</p>}
+                        </div>
+                      </button>
+                      <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                          {contactsInGroup} {contactsInGroup === 1 ? "contact" : "contacts"}
+                        </span>
+                        <button onClick={() => setExpandedGroupId(isExpanded ? null : g.id)} title="View members"
+                          className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                          <Eye className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); setEditingGroup(g); }} title="Edit group"
+                          className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                          <Edit3 className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); handleDeleteGroup(g); }} title="Delete group"
+                          className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{contactsInGroup}</span>
-                      <button onClick={() => setEditingGroup(g)} className="hidden rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 group-hover:block">
-                        <Edit3 className="h-3.5 w-3.5" />
-                      </button>
-                      <button onClick={() => handleDeleteGroup(g)} className="hidden rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500 group-hover:block">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+
+                    {/* Expanded member list */}
+                    {isExpanded && (
+                      <div className="border-t border-slate-100 bg-slate-50/50">
+                        <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100">
+                          <p className="text-xs font-medium text-slate-500">Members ({contactsInGroup})</p>
+                          <button onClick={() => { setShowAddMembersFor(g); setAddMemberChecked(new Set()); setAddMemberSearch(""); }}
+                            className="flex items-center gap-1 rounded-md bg-teal-50 px-2 py-1 text-xs font-medium text-teal-700 hover:bg-teal-100">
+                            <UserPlus className="h-3 w-3" /> Add Contacts
+                          </button>
+                        </div>
+                        {membersOfGroup.length === 0 ? (
+                          <div className="px-3 py-6 text-center">
+                            <Users className="mx-auto mb-1 h-5 w-5 text-slate-300" />
+                            <p className="text-xs text-slate-400">No contacts in this group yet</p>
+                            <button onClick={() => { setShowAddMembersFor(g); setAddMemberChecked(new Set()); setAddMemberSearch(""); }}
+                              className="mt-2 text-xs font-medium text-teal-600 hover:text-teal-700">
+                              Add contacts now
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="max-h-[240px] overflow-y-auto divide-y divide-slate-100">
+                            {membersOfGroup.map((c) => (
+                              <div key={c.id} className="flex items-center justify-between px-3 py-2 hover:bg-white transition-colors">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-medium text-slate-800 truncate">{c.first_name} {c.last_name}</p>
+                                  <p className="text-xs text-slate-400 truncate">{c.email}{c.company ? ` - ${c.company}` : ""}</p>
+                                </div>
+                                <button onClick={() => handleRemoveMemberFromGroup(c, g)} title="Remove from group"
+                                  className="ml-2 flex-shrink-0 rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-500">
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -893,6 +1044,71 @@ export default function ContactHub() {
           )}
         </div>
       )}
+
+      {/* ── Add Members to Group Modal ─────────────────────────────── */}
+      {showAddMembersFor && (() => {
+        const group = showAddMembersFor;
+        const alreadyInGroup = new Set(
+          contacts.filter((c) => c.tags.some((t) => t.toLowerCase() === group.name.toLowerCase())).map((c) => c.id)
+        );
+        const searchLower = addMemberSearch.toLowerCase();
+        const available = contacts.filter((c) => {
+          if (alreadyInGroup.has(c.id)) return false;
+          if (!searchLower) return true;
+          return `${c.first_name} ${c.last_name}`.toLowerCase().includes(searchLower) ||
+            c.email.toLowerCase().includes(searchLower) ||
+            c.company.toLowerCase().includes(searchLower);
+        });
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+              <div className="mb-1 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900">Add Contacts to &ldquo;{group.name}&rdquo;</h3>
+                <button onClick={() => { setShowAddMembersFor(null); setAddMemberChecked(new Set()); setAddMemberSearch(""); }}
+                  className="rounded-lg p-1 hover:bg-slate-100"><X className="h-4 w-4 text-slate-400" /></button>
+              </div>
+              <p className="mb-3 text-sm text-slate-500">{available.length} contact{available.length !== 1 ? "s" : ""} available to add</p>
+              <div className="mb-3">
+                <input value={addMemberSearch} onChange={(e) => setAddMemberSearch(e.target.value)}
+                  placeholder="Search by name, email, or company..."
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20" />
+              </div>
+              {available.length === 0 ? (
+                <p className="py-8 text-center text-sm text-slate-400">
+                  {contacts.length === alreadyInGroup.size ? "All contacts are already in this group" : "No matching contacts found"}
+                </p>
+              ) : (
+                <div className="mb-4 max-h-[300px] space-y-1 overflow-y-auto">
+                  {available.slice(0, 50).map((c) => (
+                    <label key={c.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50">
+                      <input type="checkbox" checked={addMemberChecked.has(c.id)}
+                        onChange={(e) => { const s = new Set(addMemberChecked); if (e.target.checked) s.add(c.id); else s.delete(c.id); setAddMemberChecked(s); }}
+                        className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
+                      <div className="min-w-0 flex-1">
+                        <span className="text-sm font-medium text-slate-700">{c.first_name} {c.last_name}</span>
+                        <span className="ml-2 text-xs text-slate-400">{c.email}</span>
+                      </div>
+                      {c.company && <span className="flex-shrink-0 text-xs text-slate-400">{c.company}</span>}
+                    </label>
+                  ))}
+                  {available.length > 50 && (
+                    <p className="py-2 text-center text-xs text-slate-400">Showing first 50 of {available.length} — use search to narrow down</p>
+                  )}
+                </div>
+              )}
+              <div className="flex justify-end gap-3">
+                <button onClick={() => { setShowAddMembersFor(null); setAddMemberChecked(new Set()); setAddMemberSearch(""); }}
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+                <button disabled={addMemberChecked.size === 0}
+                  onClick={() => handleAddMembersToGroup(group, Array.from(addMemberChecked))}
+                  className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50">
+                  Add {addMemberChecked.size > 0 ? `(${addMemberChecked.size})` : ""}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Assign Group Modal ─────────────────────────────────── */}
       {showGroupAssign && (

@@ -30,7 +30,10 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     if (!body.type || !body.title) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json(
+        { error: `Missing required fields: ${!body.type ? "type" : ""}${!body.type && !body.title ? ", " : ""}${!body.title ? "title" : ""}` },
+        { status: 400 }
+      );
     }
 
     const created = await createApproval({
@@ -49,7 +52,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ data: created, status: "created" });
   } catch (err) {
     console.error("Approvals POST error:", err);
-    return NextResponse.json({ error: "Failed to create approval" }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to create approval" },
+      { status: 500 }
+    );
   }
 }
 

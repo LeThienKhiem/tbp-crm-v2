@@ -24,16 +24,21 @@ import LeadPipeline from "@/components/marketing-crm/LeadPipeline";
 import Analytics from "@/components/marketing-crm/Analytics";
 import InboxComponent from "@/components/marketing-crm/Inbox";
 
-const TAB_CONFIG: { id: MarketingTab; label: string; icon: typeof Users }[] = [
+// Per Thomas's directive: Marketing team uses Instantly.ai directly for list/template/sequence building.
+// TBP CRM focuses on analytics + tracking (pulling data via API).
+// Hidden tabs: Sequences, Templates, Inbox (kept in codebase, just not shown in nav).
+const TAB_CONFIG: { id: MarketingTab; label: string; icon: typeof Users; hidden?: boolean }[] = [
   { id: "contacts", label: "Contact Hub", icon: Users },
-  { id: "sequences", label: "Sequences", icon: Mail },
-  { id: "templates", label: "Templates", icon: FileText },
+  { id: "sequences", label: "Sequences", icon: Mail, hidden: true },
+  { id: "templates", label: "Templates", icon: FileText, hidden: true },
   { id: "approvals", label: "Approvals", icon: ShieldCheck },
-  { id: "inbox", label: "Inbox", icon: InboxIcon },
+  { id: "inbox", label: "Inbox", icon: InboxIcon, hidden: true },
   { id: "campaigns", label: "Campaigns", icon: Megaphone },
   { id: "pipeline", label: "Pipeline", icon: Kanban },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
 ];
+
+const VISIBLE_TABS = TAB_CONFIG.filter((t) => !t.hidden);
 
 export default function MarketingCrmPage() {
   const [activeTab, setActiveTab] = useState<MarketingTab>("contacts");
@@ -76,7 +81,7 @@ export default function MarketingCrmPage() {
 
         {/* Tab bar */}
         <div className="mb-6 flex gap-1 overflow-x-auto border-b border-slate-200">
-          {TAB_CONFIG.map((tab) => {
+          {VISIBLE_TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             return (

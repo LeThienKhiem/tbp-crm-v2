@@ -56,7 +56,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ data: saved, status: body._recordId ? "updated" : "created" });
   } catch (err) {
     console.error("Sequences POST error:", err);
-    return NextResponse.json({ error: "Failed to save sequence" }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to save sequence" },
+      { status: 500 }
+    );
   }
 }
 

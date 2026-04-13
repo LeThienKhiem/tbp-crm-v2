@@ -168,7 +168,7 @@ test.describe("Tab Navigation — All 7 tabs load", () => {
     expect(errors.filter((e) => e.includes("404"))).toHaveLength(0);
   });
 
-  test("Tab 2: Sequences loads", async ({ page }) => {
+  test.skip("Tab 2: Sequences loads", async ({ page }) => {
     const errors = collectErrors(page);
     await goToCRM(page);
     await clickTab(page, "Sequences");
@@ -177,7 +177,7 @@ test.describe("Tab Navigation — All 7 tabs load", () => {
     expect(errors.filter((e) => e.includes("404"))).toHaveLength(0);
   });
 
-  test("Tab 3: Templates loads", async ({ page }) => {
+  test.skip("Tab 3: Templates loads", async ({ page }) => {
     const errors = collectErrors(page);
     await goToCRM(page);
     await clickTab(page, "Templates");
@@ -373,7 +373,7 @@ test.describe("Contact Hub Flows", () => {
 //  PART 4: SEQUENCE BUILDER FLOWS
 // ══════════════════════════════════════════════════════════════════
 
-test.describe("Sequence Builder Flows", () => {
+test.describe.skip("Sequence Builder Flows", () => {
   test("New Sequence form loads correctly", async ({ page }) => {
     await goToCRM(page);
     await clickTab(page, "Sequences");
@@ -742,7 +742,7 @@ test.describe("No 404 / broken resources", () => {
 
     await goToCRM(page);
     // Navigate through all tabs
-    for (const tab of ["Contact Hub", "Sequences", "Templates", "Approvals"]) {
+    for (const tab of ["Contact Hub", "Approvals"]) {
       await clickTab(page, tab);
       await page.waitForTimeout(500);
     }
@@ -765,7 +765,7 @@ test.describe("No 404 / broken resources", () => {
     });
 
     await goToCRM(page);
-    for (const tab of ["Contact Hub", "Sequences", "Templates", "Approvals"]) {
+    for (const tab of ["Contact Hub", "Approvals"]) {
       await clickTab(page, tab);
       await page.waitForTimeout(800);
     }

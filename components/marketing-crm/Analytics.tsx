@@ -13,6 +13,7 @@ import {
   Loader2,
   Trophy,
 } from "lucide-react";
+import InstantlySyncPanel from "./InstantlySyncPanel";
 import {
   BarChart,
   Bar,
@@ -248,6 +249,9 @@ export default function Analytics() {
 
   return (
     <div className="space-y-6">
+      {/* ── Instantly Sync Panel ───────────────────────────────── */}
+      <InstantlySyncPanel />
+
       {/* ── Header + time range selector ───────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
