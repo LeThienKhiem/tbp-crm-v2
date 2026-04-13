@@ -23,8 +23,10 @@ import {
   Trash2,
   Edit3,
   FolderOpen,
+  Clock,
 } from "lucide-react";
 import type { Contact, ContactStatus } from "@/types/marketing";
+import ActivityTimeline from "./ActivityTimeline";
 
 // ── Contact Group type ──────────────────────────────────────────
 interface ContactGroup {
@@ -118,27 +120,53 @@ type RevealedContact = {
   linkedin_url?: string | null;
 };
 
-// ── Demo CSV contacts ────────────────────────────────────────────
-const CSV_DEMO_CONTACTS: Omit<Contact, "id" | "created_at" | "updated_at">[] = [
-  {
-    first_name: "Sarah", last_name: "Chen", email: "sarah.chen@fleetcorp.com",
-    company: "FleetCorp Logistics", title: "VP of Procurement", state: "TX", city: "Dallas",
-    source: "apollo_csv", status: "new", tags: ["fleet", "high-priority"],
-    industry: "Logistics", phone: "(214) 555-0182", linkedin_url: "https://linkedin.com/in/sarah-chen",
-  },
-  {
-    first_name: "Marcus", last_name: "Rivera", email: "m.rivera@oemsolutions.io",
-    company: "OEM Solutions Inc", title: "Director of Parts", state: "MI", city: "Detroit",
-    source: "apollo_csv", status: "new", tags: ["oem"],
-    industry: "Automotive", phone: "(313) 555-0247", linkedin_url: null,
-  },
-  {
-    first_name: "Linda", last_name: "Nguyen", email: "l.nguyen@greenfleet.co",
-    company: "GreenFleet EV", title: "Fleet Manager", state: "CA", city: "San Jose",
-    source: "apollo_csv", status: "new", tags: ["fleet", "aftermarket"],
-    industry: "Electric Vehicles", phone: "(408) 555-0319", linkedin_url: "https://linkedin.com/in/lindanguyen",
-  },
-];
+// ── CSV column name normalizer ───────────────────────────────────
+const CSV_COLUMN_MAP: Record<string, string> = {
+  first_name: "first_name", firstname: "first_name", "first name": "first_name", first: "first_name",
+  last_name: "last_name", lastname: "last_name", "last name": "last_name", last: "last_name",
+  email: "email", "email address": "email", emailaddress: "email", "e-mail": "email",
+  phone: "phone", "phone number": "phone", phonenumber: "phone", telephone: "phone", mobile: "phone",
+  company: "company", "company name": "company", companyname: "company", organization: "company",
+  title: "title", "job title": "title", jobtitle: "title", position: "title", role: "title",
+  industry: "industry", state: "state", "state/region": "state", region: "state", city: "city",
+  linkedin_url: "linkedin_url", linkedinurl: "linkedin_url", linkedin: "linkedin_url", "linkedin url": "linkedin_url",
+  tags: "tags", tag: "tags", labels: "tags",
+};
+
+function normalizeCsvCol(col: string): string | null {
+  const key = col.trim().toLowerCase().replace(/[_\-]/g, " ").replace(/\s+/g, " ");
+  return CSV_COLUMN_MAP[key] ?? CSV_COLUMN_MAP[key.replace(/\s/g, "")] ?? null;
+}
+
+function parseCsvLine(line: string): string[] {
+  const fields: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') { current += '"'; i++; } else { inQuotes = false; }
+      } else { current += ch; }
+    } else {
+      if (ch === '"') { inQuotes = true; }
+      else if (ch === ",") { fields.push(current.trim()); current = ""; }
+      else { current += ch; }
+    }
+  }
+  fields.push(current.trim());
+  return fields;
+}
+
+function parseCsvText(text: string): string[][] {
+  return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n")
+    .map((line) => parseCsvLine(line))
+    .filter((row) => row.some((cell) => cell.length > 0));
+}
+
+// ── CSV import types ────────────────────────────────────────────
+interface CsvImportResult { saved: number; skipped: number; errors: string[]; total_rows: number }
+type CsvImportStep = "upload" | "preview" | "importing" | "done";
 
 // ── Stats card ───────────────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: number; color: string }) {
@@ -181,6 +209,20 @@ export default function ContactHub() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [detailContact, setDetailContact] = useState<Contact | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  // ── CSV file upload state ──────────────────────────────────────
+  const [csvStep, setCsvStep] = useState<CsvImportStep>("upload");
+  const [csvText, setCsvText] = useState("");
+  const [csvFileName, setCsvFileName] = useState("");
+  const [csvRows, setCsvRows] = useState<string[][]>([]);
+  const [csvColumnMap, setCsvColumnMap] = useState<(string | null)[]>([]);
+  const [csvImporting, setCsvImporting] = useState(false);
+  const [csvResult, setCsvResult] = useState<CsvImportResult | null>(null);
+  const [csvError, setCsvError] = useState<string | null>(null);
+  const [csvDragOver, setCsvDragOver] = useState(false);
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
 
   // ── Contact Groups state ───────────────────────────────────────
   const [groups, setGroups] = useState<ContactGroup[]>([]);
@@ -358,13 +400,67 @@ export default function ContactHub() {
   }, [contacts, selectedIds]);
 
   // ── CSV import ─────────────────────────────────────────────────
-  const handleImport = useCallback(() => {
-    const now = new Date().toISOString();
-    const newContacts: Contact[] = CSV_DEMO_CONTACTS.map((c, i) => ({ ...c, id: `import-${Date.now()}-${i}`, created_at: now, updated_at: now }));
-    setContacts((prev) => [...newContacts, ...prev]);
-    setShowImportModal(false);
-    setToast({ message: `Imported ${newContacts.length} contacts`, type: "success" });
+  const resetCsvState = useCallback(() => {
+    setCsvStep("upload"); setCsvText(""); setCsvFileName(""); setCsvRows([]);
+    setCsvColumnMap([]); setCsvImporting(false); setCsvResult(null); setCsvError(null); setCsvDragOver(false);
   }, []);
+
+  const handleCsvFileRead = useCallback((text: string, fileName: string) => {
+    setCsvText(text);
+    setCsvFileName(fileName);
+    setCsvError(null);
+    const rows = parseCsvText(text);
+    if (rows.length < 2) { setCsvError("CSV must have a header row and at least one data row."); return; }
+    const headerRow = rows[0];
+    const mapping = headerRow.map((col) => normalizeCsvCol(col));
+    if (!mapping.includes("email")) { setCsvError(`Could not find an email column. Headers: ${headerRow.join(", ")}`); return; }
+    setCsvRows(rows);
+    setCsvColumnMap(mapping);
+    setCsvStep("preview");
+  }, []);
+
+  const handleCsvFileDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); setCsvDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file || !file.name.toLowerCase().endsWith(".csv")) { setCsvError("Please drop a .csv file"); return; }
+    const reader = new FileReader();
+    reader.onload = () => handleCsvFileRead(reader.result as string, file.name);
+    reader.readAsText(file);
+  }, [handleCsvFileRead]);
+
+  const handleCsvFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => handleCsvFileRead(reader.result as string, file.name);
+    reader.readAsText(file);
+  }, [handleCsvFileRead]);
+
+  const handleCsvImport = useCallback(async () => {
+    setCsvStep("importing"); setCsvImporting(true); setCsvError(null);
+    try {
+      const res = await fetch("/api/marketing-crm/contacts/import-csv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csv_text: csvText }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setCsvError(data.error || "Import failed"); setCsvStep("preview"); setCsvImporting(false); return; }
+      setCsvResult(data as CsvImportResult);
+      setCsvStep("done");
+      if (data.saved > 0) {
+        // Refresh contacts list
+        try {
+          const listRes = await fetch("/api/marketing-crm/contacts");
+          const listData = await listRes.json();
+          if (listData.data) setContacts(listData.data);
+        } catch { /* ignore refresh failure */ }
+      }
+    } catch (err) {
+      setCsvError(err instanceof Error ? err.message : "Network error");
+      setCsvStep("preview");
+    } finally { setCsvImporting(false); }
+  }, [csvText]);
 
   // ── Apollo search ──────────────────────────────────────────────
   const handleApolloSearch = useCallback(async (e: React.FormEvent) => {
@@ -859,7 +955,7 @@ export default function ContactHub() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filtered.map((c) => (
-                  <tr key={c.id} onClick={() => setDetailContact(c)} className="cursor-pointer hover:bg-slate-50 transition-colors">
+                  <tr key={c.id} onClick={() => { setDetailContact(c); setEditingNotes(false); }} className="cursor-pointer hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)} className="rounded border-slate-300" />
                     </td>
@@ -891,7 +987,7 @@ export default function ContactHub() {
           {/* Mobile cards */}
           <div className="space-y-3 md:hidden">
             {filtered.map((c) => (
-              <div key={c.id} onClick={() => setDetailContact(c)} className="cursor-pointer rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div key={c.id} onClick={() => { setDetailContact(c); setEditingNotes(false); }} className="cursor-pointer rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-medium text-slate-900">{c.first_name} {c.last_name}</p>
@@ -915,34 +1011,144 @@ export default function ContactHub() {
       {/* CSV Import Modal */}
       {showImportModal && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
-          <div className="mx-4 w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+          <div className="mx-4 w-full max-w-2xl rounded-xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-900">Import CSV Preview</h3>
-              <button onClick={() => setShowImportModal(false)} className="rounded-lg p-1 hover:bg-slate-100"><X className="h-5 w-5 text-slate-500" /></button>
+              <h3 className="text-lg font-semibold text-slate-900">
+                {csvStep === "upload" && "Import CSV"}
+                {csvStep === "preview" && "Preview Import"}
+                {csvStep === "importing" && "Importing..."}
+                {csvStep === "done" && "Import Complete"}
+              </h3>
+              <button onClick={() => { setShowImportModal(false); resetCsvState(); }} className="rounded-lg p-1 hover:bg-slate-100"><X className="h-5 w-5 text-slate-500" /></button>
             </div>
-            <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                    <th className="px-3 py-2">Name</th><th className="px-3 py-2">Company</th><th className="px-3 py-2">Email</th><th className="px-3 py-2">State</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {CSV_DEMO_CONTACTS.map((c, i) => (
-                    <tr key={i}>
-                      <td className="px-3 py-2 text-slate-900">{c.first_name} {c.last_name}</td>
-                      <td className="px-3 py-2 text-slate-600">{c.company}</td>
-                      <td className="px-3 py-2 text-slate-600">{c.email}</td>
-                      <td className="px-3 py-2 text-slate-600">{c.state}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="mt-5 flex justify-end gap-3">
-              <button onClick={() => setShowImportModal(false)} className="rounded-lg px-4 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-50">Cancel</button>
-              <button onClick={handleImport} className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700">Import 3 Contacts</button>
-            </div>
+
+            {/* Step 1: Upload */}
+            {csvStep === "upload" && (
+              <div className="mt-4">
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setCsvDragOver(true); }}
+                  onDragLeave={() => setCsvDragOver(false)}
+                  onDrop={handleCsvFileDrop}
+                  className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 transition-colors ${csvDragOver ? "border-blue-400 bg-blue-50" : "border-slate-300 bg-slate-50 hover:border-slate-400"}`}
+                >
+                  <Upload className="mb-3 h-10 w-10 text-slate-400" />
+                  <p className="text-sm font-medium text-slate-700">Drag & drop a CSV file here</p>
+                  <p className="mt-1 text-xs text-slate-500">or click below to browse</p>
+                  <label className="mt-4 cursor-pointer rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700">
+                    Choose File
+                    <input type="file" accept=".csv" onChange={handleCsvFileSelect} className="hidden" />
+                  </label>
+                </div>
+                {csvError && (
+                  <div className="mt-3 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                    <AlertCircle className="h-4 w-4 shrink-0" /> {csvError}
+                  </div>
+                )}
+                <p className="mt-3 text-xs text-slate-500">Supported columns: first_name, last_name, email, phone, company, title, industry, state, city, linkedin_url, tags</p>
+              </div>
+            )}
+
+            {/* Step 2: Preview */}
+            {csvStep === "preview" && csvRows.length > 1 && (
+              <div className="mt-4 space-y-4">
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <Database className="h-4 w-4" />
+                  <span className="font-medium">{csvFileName}</span>
+                  <span className="text-slate-400">|</span>
+                  <span>{csvRows.length - 1} row{csvRows.length - 1 !== 1 ? "s" : ""} detected</span>
+                </div>
+
+                {/* Column mapping */}
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Column Mapping</p>
+                  <div className="flex flex-wrap gap-2">
+                    {csvRows[0].map((header, i) => (
+                      <div key={i} className={`rounded-md px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${csvColumnMap[i] ? "bg-green-50 text-green-700 ring-green-600/20" : "bg-slate-100 text-slate-400 ring-slate-300"}`}>
+                        {header} {csvColumnMap[i] ? `\u2192 ${csvColumnMap[i]}` : "(skipped)"}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Preview table (first 5 rows) */}
+                <div className="overflow-x-auto rounded-lg border border-slate-200">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                        {csvRows[0].map((h, i) => <th key={i} className="px-3 py-2 whitespace-nowrap">{h}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {csvRows.slice(1, 6).map((row, i) => (
+                        <tr key={i}>
+                          {row.map((cell, j) => <td key={j} className="px-3 py-2 text-slate-600 whitespace-nowrap max-w-[200px] truncate">{cell}</td>)}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {csvRows.length > 6 && <p className="text-xs text-slate-500">Showing first 5 of {csvRows.length - 1} rows</p>}
+
+                {csvError && (
+                  <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                    <AlertCircle className="h-4 w-4 shrink-0" /> {csvError}
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3">
+                  <button onClick={resetCsvState} className="rounded-lg px-4 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-50">Back</button>
+                  <button onClick={handleCsvImport} className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700">
+                    Import {csvRows.length - 1} Contact{csvRows.length - 1 !== 1 ? "s" : ""}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Importing */}
+            {csvStep === "importing" && (
+              <div className="mt-6 flex flex-col items-center py-8">
+                <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
+                <p className="mt-4 text-sm font-medium text-slate-700">Importing contacts to Airtable...</p>
+                <p className="mt-1 text-xs text-slate-500">This may take a moment for large files</p>
+              </div>
+            )}
+
+            {/* Step 4: Done */}
+            {csvStep === "done" && csvResult && (
+              <div className="mt-4 space-y-4">
+                <div className="rounded-xl border border-green-200 bg-green-50 p-5">
+                  <div className="flex items-center gap-2 text-green-800">
+                    <CheckCircle2 className="h-5 w-5" />
+                    <p className="text-sm font-semibold">Import complete</p>
+                  </div>
+                  <div className="mt-3 grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="text-2xl font-bold text-green-700">{csvResult.saved}</p>
+                      <p className="text-xs text-green-600">Saved</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-slate-600">{csvResult.skipped}</p>
+                      <p className="text-xs text-slate-500">Skipped</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-slate-600">{csvResult.total_rows}</p>
+                      <p className="text-xs text-slate-500">Total Rows</p>
+                    </div>
+                  </div>
+                </div>
+                {csvResult.errors.length > 0 && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-red-600">Errors</p>
+                    <ul className="max-h-32 space-y-1 overflow-y-auto text-xs text-red-700">
+                      {csvResult.errors.map((err, i) => <li key={i}>{err}</li>)}
+                    </ul>
+                  </div>
+                )}
+                <div className="flex justify-end">
+                  <button onClick={() => { setShowImportModal(false); resetCsvState(); }} className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700">Done</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -987,6 +1193,78 @@ export default function ContactHub() {
                 <DetailRow label="Created" value={new Date(detailContact.created_at).toLocaleDateString()} />
                 <DetailRow label="Updated" value={new Date(detailContact.updated_at).toLocaleDateString()} />
                 {detailContact.approved_at && <DetailRow label="Approved" value={new Date(detailContact.approved_at).toLocaleDateString()} />}
+              </div>
+              {/* Notes section */}
+              <div className="rounded-lg bg-slate-50 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-sm font-medium text-slate-700">Notes</span>
+                  {!editingNotes && (
+                    <button
+                      onClick={() => { setEditingNotes(true); setNoteDraft(detailContact.notes ?? ""); }}
+                      className="rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
+                    >
+                      <Edit3 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                {editingNotes ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={noteDraft}
+                      onChange={(e) => setNoteDraft(e.target.value)}
+                      rows={4}
+                      className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      placeholder="Add a note about this contact..."
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        disabled={savingNote}
+                        onClick={async () => {
+                          setSavingNote(true);
+                          try {
+                            const res = await fetch("/api/marketing-crm/contacts/update", {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ updates: [{ id: detailContact.id, fields: { notes: noteDraft } }] }),
+                            });
+                            if (!res.ok) throw new Error("Failed to save note");
+                            // Update local state
+                            const updatedContact = { ...detailContact, notes: noteDraft || null };
+                            setDetailContact(updatedContact);
+                            setContacts((prev) => prev.map((c) => c.id === detailContact.id ? { ...c, notes: noteDraft || null } : c));
+                            setEditingNotes(false);
+                            setToast({ message: "Note saved", type: "success" });
+                          } catch {
+                            setToast({ message: "Failed to save note", type: "error" });
+                          } finally {
+                            setSavingNote(false);
+                          }
+                        }}
+                        className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {savingNote ? "Saving..." : "Save"}
+                      </button>
+                      <button
+                        onClick={() => setEditingNotes(false)}
+                        className="rounded-md px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-600 whitespace-pre-wrap">
+                    {detailContact.notes || "No notes yet"}
+                  </p>
+                )}
+              </div>
+              {/* Activity Timeline section */}
+              <div className="rounded-lg bg-slate-50 p-3">
+                <div className="mb-3 flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-slate-500" />
+                  <span className="text-sm font-medium text-slate-700">Activity Timeline</span>
+                </div>
+                <ActivityTimeline contactId={detailContact.id} contactEmail={detailContact.email} />
               </div>
             </div>
           </div>

@@ -8,6 +8,7 @@ import {
   Mail,
   FileText,
   ShieldCheck,
+  Inbox as InboxIcon,
   Megaphone,
   Kanban,
   BarChart3,
@@ -21,12 +22,14 @@ import EmailTemplates from "@/components/marketing-crm/EmailTemplates";
 import CampaignManager from "@/components/marketing-crm/CampaignManager";
 import LeadPipeline from "@/components/marketing-crm/LeadPipeline";
 import Analytics from "@/components/marketing-crm/Analytics";
+import InboxComponent from "@/components/marketing-crm/Inbox";
 
 const TAB_CONFIG: { id: MarketingTab; label: string; icon: typeof Users }[] = [
   { id: "contacts", label: "Contact Hub", icon: Users },
   { id: "sequences", label: "Sequences", icon: Mail },
   { id: "templates", label: "Templates", icon: FileText },
   { id: "approvals", label: "Approvals", icon: ShieldCheck },
+  { id: "inbox", label: "Inbox", icon: InboxIcon },
   { id: "campaigns", label: "Campaigns", icon: Megaphone },
   { id: "pipeline", label: "Pipeline", icon: Kanban },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
@@ -103,6 +106,7 @@ export default function MarketingCrmPage() {
         {activeTab === "sequences" && <SequenceBuilder />}
         {activeTab === "templates" && <EmailTemplates />}
         {activeTab === "approvals" && <ApprovalCenter />}
+        {activeTab === "inbox" && <InboxComponent />}
         {activeTab === "campaigns" && <CampaignManager />}
         {activeTab === "pipeline" && <LeadPipeline />}
         {activeTab === "analytics" && <Analytics />}

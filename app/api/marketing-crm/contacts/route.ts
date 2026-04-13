@@ -32,7 +32,7 @@ const MOCK_CONTACTS: Contact[] = [
 ];
 
 /** Convert Airtable record → Contact shape (tags from comma-string to array). */
-function toContact(r: { id: string; first_name: string; last_name: string; email: string; phone?: string | null; company: string; title: string; industry?: string | null; state?: string | null; city?: string | null; linkedin_url?: string | null; source: string; status: string; tags: string; apollo_id?: string | null; approved_by?: string | null; approved_at?: string | null; created_at: string; updated_at: string }): Contact {
+function toContact(r: { id: string; first_name: string; last_name: string; email: string; phone?: string | null; company: string; title: string; industry?: string | null; state?: string | null; city?: string | null; linkedin_url?: string | null; notes?: string | null; source: string; status: string; tags: string; apollo_id?: string | null; approved_by?: string | null; approved_at?: string | null; created_at: string; updated_at: string }): Contact {
   return {
     id: r.id,
     first_name: r.first_name,
@@ -48,6 +48,7 @@ function toContact(r: { id: string; first_name: string; last_name: string; email
     source: (r.source as Contact["source"]) || "apollo",
     status: (r.status as Contact["status"]) || "new",
     tags: r.tags ? r.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
+    notes: r.notes,
     approved_by: r.approved_by,
     approved_at: r.approved_at,
     created_at: r.created_at,

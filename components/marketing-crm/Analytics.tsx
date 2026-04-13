@@ -11,6 +11,7 @@ import {
   BarChart3,
   TrendingDown,
   Loader2,
+  Trophy,
 } from "lucide-react";
 import {
   BarChart,
@@ -51,6 +52,41 @@ interface AnalyticsData {
     reply_rate: number;
     click_rate: number;
   }[];
+}
+
+// ── A/B Variant types ───────────────────────────────────────────
+interface VariantData {
+  label: string;
+  sent: number;
+  opens: number;
+  clicks: number;
+  replies: number;
+  bounces: number;
+  open_rate: number;
+  click_rate: number;
+  reply_rate: number;
+  bounce_rate: number;
+  is_winner?: boolean;
+}
+
+interface VariantResponse {
+  data: {
+    campaign_id?: string;
+    variants: VariantData[];
+    is_demo?: boolean;
+  };
+}
+
+const VARIANT_BADGE_STYLES: Record<string, { bg: string; text: string; fill: string }> = {
+  A: { bg: "bg-blue-100", text: "text-blue-700", fill: "#3b82f6" },
+  B: { bg: "bg-purple-100", text: "text-purple-700", fill: "#a855f7" },
+  C: { bg: "bg-amber-100", text: "text-amber-700", fill: "#f59e0b" },
+  D: { bg: "bg-pink-100", text: "text-pink-700", fill: "#ec4899" },
+  E: { bg: "bg-teal-100", text: "text-teal-700", fill: "#14b8a6" },
+};
+
+function getVariantStyle(label: string) {
+  return VARIANT_BADGE_STYLES[label] ?? { bg: "bg-slate-100", text: "text-slate-700", fill: "#64748b" };
 }
 
 // ── Funnel stage colors ──────────────────────────────────────────
@@ -146,6 +182,11 @@ export default function Analytics() {
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<TimeRange>("all");
 
+  // A/B Variant analytics state
+  const [variantData, setVariantData] = useState<VariantData[]>([]);
+  const [variantLoading, setVariantLoading] = useState(true);
+  const [variantIsDemo, setVariantIsDemo] = useState(false);
+
   useEffect(() => {
     setLoading(true);
     fetch("/api/marketing-crm/analytics")
@@ -153,6 +194,20 @@ export default function Analytics() {
       .then((d) => setData(d.data ?? d))
       .catch(() => setData(null))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    setVariantLoading(true);
+    fetch("/api/marketing-crm/campaigns/variants")
+      .then((r) => r.json())
+      .then((d: VariantResponse) => {
+        setVariantData(d.data?.variants ?? []);
+        setVariantIsDemo(d.data?.is_demo ?? false);
+      })
+      .catch(() => {
+        setVariantData([]);
+      })
+      .finally(() => setVariantLoading(false));
   }, []);
 
   // ── Loading state ──────────────────────────────────────────────
@@ -298,6 +353,173 @@ export default function Analytics() {
             />
           </BarChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* ── A/B Variant Performance ─────────────────────────────── */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100">
+              <Trophy className="h-4 w-4 text-indigo-600" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-slate-800">
+                A/B Test Results
+              </h3>
+              {variantIsDemo && !variantLoading && (
+                <p className="text-xs text-slate-400">Demo data &mdash; deploy A/B variants to see real results</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {variantLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-indigo-400" />
+            <span className="ml-2 text-sm text-slate-400">Loading variant data...</span>
+          </div>
+        ) : variantData.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+            <BarChart3 className="h-10 w-10 mb-2" />
+            <p className="text-sm font-medium">No A/B test data available</p>
+            <p className="text-xs">Create variants in your sequences to compare performance.</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Grouped bar chart */}
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart
+                data={variantData.map((v) => ({
+                  name: `Variant ${v.label}`,
+                  "Open Rate": v.open_rate,
+                  "Click Rate": v.click_rate,
+                  "Reply Rate": v.reply_rate,
+                }))}
+                margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
+              >
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 12, fill: "#64748b" }}
+                  axisLine={{ stroke: "#e2e8f0" }}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 12, fill: "#64748b" }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v: number) => `${v}%`}
+                />
+                <Tooltip
+                  formatter={(value) => [`${Number(value).toFixed(1)}%`]}
+                  contentStyle={{
+                    borderRadius: "8px",
+                    border: "1px solid #e2e8f0",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: "13px", paddingTop: "8px" }} />
+                <Bar dataKey="Open Rate" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Click Rate" fill="#a855f7" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Reply Rate" fill="#22c55e" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+
+            {/* Variant detail table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <th className="px-4 py-3 rounded-tl-lg">Variant</th>
+                    <th className="px-4 py-3 text-right">Sent</th>
+                    <th className="px-4 py-3">Open Rate</th>
+                    <th className="px-4 py-3">Click Rate</th>
+                    <th className="px-4 py-3">Reply Rate</th>
+                    <th className="px-4 py-3 text-right">Bounces</th>
+                    <th className="px-4 py-3 rounded-tr-lg text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {variantData.map((v) => {
+                    const style = getVariantStyle(v.label);
+                    return (
+                      <tr
+                        key={v.label}
+                        className={`transition-colors ${
+                          v.is_winner
+                            ? "bg-green-50 ring-1 ring-inset ring-green-500/20"
+                            : "hover:bg-slate-50"
+                        }`}
+                      >
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${style.bg} ${style.text}`}
+                          >
+                            {v.label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-600 text-right">
+                          {fmt(v.sent)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-20 rounded-full bg-blue-100 overflow-hidden">
+                              <div
+                                className="h-2 rounded-full bg-blue-500 transition-all duration-300"
+                                style={{ width: `${Math.min(v.open_rate, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-sm text-slate-600 min-w-[3rem] text-right">
+                              {pct(v.open_rate)}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-20 rounded-full bg-purple-100 overflow-hidden">
+                              <div
+                                className="h-2 rounded-full bg-purple-500 transition-all duration-300"
+                                style={{ width: `${Math.min(v.click_rate * 2, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-sm text-slate-600 min-w-[3rem] text-right">
+                              {pct(v.click_rate)}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-20 rounded-full bg-green-100 overflow-hidden">
+                              <div
+                                className="h-2 rounded-full bg-green-500 transition-all duration-300"
+                                style={{ width: `${Math.min(v.reply_rate * 2, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-sm text-slate-600 min-w-[3rem] text-right">
+                              {pct(v.reply_rate)}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-600 text-right">
+                          {fmt(v.bounces)}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {v.is_winner ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+                              <Trophy className="h-3 w-3" />
+                              Winner
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-400">Active</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Funnel + Cost analysis row ─────────────────────────── */}

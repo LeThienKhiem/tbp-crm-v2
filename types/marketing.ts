@@ -20,6 +20,7 @@ export interface Contact {
   approved_by?: string | null;
   approved_at?: string | null;
   created_at: string;
+  notes?: string | null;
   updated_at: string;
 }
 
@@ -171,4 +172,4 @@ export interface StateBreakdown {
 }
 
 // ── Tab navigation ────────────────────────────────────────────
-export type MarketingTab = "contacts" | "sequences" | "templates" | "approvals" | "campaigns" | "pipeline" | "analytics";
+export type MarketingTab = "contacts" | "sequences" | "templates" | "approvals" | "inbox" | "campaigns" | "pipeline" | "analytics";

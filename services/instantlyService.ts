@@ -382,6 +382,32 @@ export async function updateLeadInterest(
   });
 }
 
+// ── Send Test Email ─────────────────────────────────────────
+
+export async function sendTestEmail(params: {
+  to_email: string;
+  subject: string;
+  body: string;
+  from_name?: string;
+}): Promise<void> {
+  // Instantly v2 does not expose a direct one-off send endpoint,
+  // so we use the /emails/send endpoint if available, otherwise throw
+  // to let the caller fall back to preview mode.
+  try {
+    await apiPost("/emails/send", {
+      to: params.to_email,
+      subject: params.subject,
+      body: { html: params.body, text: params.body.replace(/<[^>]*>/g, "") },
+      from_name: params.from_name ?? "TBP Auto",
+    });
+  } catch (err) {
+    // Re-throw so the API route can fall back to preview
+    throw new Error(
+      `Instantly email send failed: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+}
+
 // ── Emails (Unibox) ─────────────────────────────────────────
 
 export async function listEmails(

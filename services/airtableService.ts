@@ -54,6 +54,7 @@ export interface AirtableContact {
   source: string;
   status: string;
   tags: string; // comma-separated in Airtable
+  notes?: string | null;
   apollo_id?: string | null;
   approved_by?: string | null;
   approved_at?: string | null;
@@ -76,6 +77,7 @@ export interface AirtableFields {
   source: string;
   status: string;
   tags: string; // comma-separated
+  notes?: string;
   apollo_id?: string;
   approved_by?: string;
   approved_at?: string;
@@ -99,6 +101,7 @@ function recordToContact(rec: { id: string; fields: Record<string, unknown> }): 
     state: f.state ? String(f.state) : null,
     city: f.city ? String(f.city) : null,
     linkedin_url: f.linkedin_url ? String(f.linkedin_url) : null,
+    notes: f.notes ? String(f.notes) : null,
     source: String(f.source ?? "apollo"),
     status: String(f.status ?? "new"),
     tags: String(f.tags ?? ""),

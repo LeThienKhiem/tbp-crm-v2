@@ -15,6 +15,7 @@ import {
   Copy,
   Edit3,
   Send,
+  SendHorizonal,
   Lock,
   Layers,
   Users,
@@ -24,6 +25,7 @@ import {
   Zap,
   Rocket,
   RefreshCw,
+  Loader2,
 } from "lucide-react";
 import type {
   Sequence,
@@ -365,6 +367,144 @@ function SpintaxToolbar({ text, onInsert }: { text: string; onInsert: (snippet: 
   );
 }
 
+// ── Send Test Email Button + Modal ─────────────────────────────
+
+function SendTestButton({ subject, body }: { subject: string; body: string }) {
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{
+    status: "sent" | "preview_only" | "error";
+    message: string;
+    preview?: { subject: string; body: string };
+  } | null>(null);
+
+  async function handleSend() {
+    if (!email) return;
+    setSending(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/marketing-crm/test-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to_email: email, subject, body, from_name: "TBP Auto" }),
+      });
+      const json = await res.json();
+      setResult(json);
+    } catch {
+      setResult({ status: "error", message: "Network error — could not send test email." });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => { setOpen(true); setResult(null); }}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+        title="Send a test email to preview"
+      >
+        <SendHorizonal size={12} /> Send Test
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setOpen(false)}>
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50">
+                  <SendHorizonal size={16} className="text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">Send Test Email</h3>
+                  <p className="text-xs text-slate-500">Preview with sample data</p>
+                </div>
+              </div>
+              <button onClick={() => setOpen(false)} className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                <X size={16} />
+              </button>
+            </div>
+
+            {!result ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-slate-700">Send test to:</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                    autoFocus
+                    onKeyDown={(e) => { if (e.key === "Enter") handleSend(); }}
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Variables like {"{{first_name}}"} will be replaced with sample data (John Smith, Acme Auto Parts, etc.). Spintax will be randomly resolved.
+                </p>
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSend}
+                    disabled={!email || sending}
+                    className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                    {sending ? "Sending..." : "Send Test"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Status message */}
+                <div className={`flex items-start gap-2 rounded-lg border p-3 text-sm ${
+                  result.status === "sent"
+                    ? "border-green-200 bg-green-50 text-green-800"
+                    : result.status === "preview_only"
+                      ? "border-amber-200 bg-amber-50 text-amber-800"
+                      : "border-red-200 bg-red-50 text-red-800"
+                }`}>
+                  {result.status === "sent" && <CheckCircle size={16} className="mt-0.5 shrink-0 text-green-600" />}
+                  {result.status === "preview_only" && <Eye size={16} className="mt-0.5 shrink-0 text-amber-600" />}
+                  {result.status === "error" && <AlertTriangle size={16} className="mt-0.5 shrink-0 text-red-600" />}
+                  <span>{result.message}</span>
+                </div>
+
+                {/* Preview */}
+                {result.preview && (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Rendered Preview</div>
+                    <div className="mb-2">
+                      <span className="text-[10px] font-medium text-slate-500">Subject: </span>
+                      <span className="text-sm font-semibold text-slate-900">{result.preview.subject}</span>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto rounded border border-slate-200 bg-white p-3 text-sm text-slate-800 whitespace-pre-wrap">
+                      {result.preview.body}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => setResult(null)} className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">
+                    Send Another
+                  </button>
+                  <button onClick={() => setOpen(false)} className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900">
+                    Done
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ── Step Card ────────────────────────────────────────────────────
 
 function StepCard({
@@ -571,9 +711,15 @@ function StepCard({
               className="w-full resize-y rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
 
             {/* ── Spintax Toolbar ── */}
-            <SpintaxToolbar text={fullText} onInsert={(snippet) => {
-              updateVariant(activeVariantIdx, { body: appendSpintax(variantBody, snippet) });
-            }} />
+            {/* ── Spintax Toolbar + Send Test ── */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1">
+                <SpintaxToolbar text={fullText} onInsert={(snippet) => {
+                  updateVariant(activeVariantIdx, { body: appendSpintax(variantBody, snippet) });
+                }} />
+              </div>
+              <SendTestButton subject={variantSubject} body={variantBody} />
+            </div>
           </div>
         );
       })()}
