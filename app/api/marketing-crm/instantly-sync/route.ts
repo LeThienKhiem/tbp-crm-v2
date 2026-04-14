@@ -9,6 +9,7 @@ interface SyncResult {
   campaigns: { created: number; updated: number; total: number };
   contacts: { created: number; skipped: number; total: number };
   send_logs: { created: number; total: number };
+  approvals: { created: number; skipped: number };
   errors: string[];
 }
 
@@ -35,6 +36,7 @@ export async function GET() {
         campaigns: { created: 0, updated: 0, total: campaigns.length },
         contacts: { created: 0, skipped: 0, total: 0 },
         send_logs: { created: 0, total: 0 },
+        approvals: { created: 0, skipped: 0 },
         errors: [],
       },
     });
@@ -45,6 +47,7 @@ export async function GET() {
         campaigns: { created: 0, updated: 0, total: 0 },
         contacts: { created: 0, skipped: 0, total: 0 },
         send_logs: { created: 0, total: 0 },
+        approvals: { created: 0, skipped: 0 },
         errors: [],
       },
     });
@@ -69,6 +72,7 @@ export async function POST() {
     campaigns: { created: 0, updated: 0, total: 0 },
     contacts: { created: 0, skipped: 0, total: 0 },
     send_logs: { created: 0, total: 0 },
+    approvals: { created: 0, skipped: 0 },
   };
 
   const startTime = Date.now();
@@ -96,6 +100,19 @@ export async function POST() {
       if (c.instantly_campaign_id) {
         existingByInstantlyId.set(c.instantly_campaign_id, c);
       }
+    }
+
+    // Fetch existing approvals to avoid creating duplicates
+    const existingApprovalRefs = new Set<string>();
+    try {
+      const allApprovals = await airtableCrm.listApprovals();
+      for (const a of allApprovals) {
+        if (a.type === "campaign" && a.reference_id) {
+          existingApprovalRefs.add(a.reference_id);
+        }
+      }
+    } catch (err) {
+      errors.push(`Failed to fetch existing approvals: ${err instanceof Error ? err.message : String(err)}`);
     }
 
     // 2. Process each campaign
@@ -155,6 +172,47 @@ export async function POST() {
           } else {
             await airtableCrm.createCampaign(campaignData);
             stats.campaigns.created++;
+
+            // Auto-create approval record for new campaigns from Instantly
+            if (existingApprovalRefs.has(camp.id)) {
+              stats.approvals.skipped++;
+            } else try {
+              const statusLabel = instantly.campaignStatusLabel(camp.status);
+              const stepCount = camp.sequences?.length ?? 0;
+              const firstSubject = camp.sequences?.[0]?.variants?.[0]?.subject;
+              const sequenceInfo = stepCount
+                ? `${stepCount} step(s)${firstSubject ? `: "${firstSubject}"` : ""}`
+                : "No sequences configured";
+
+              await airtableCrm.createApproval({
+                type: "campaign",
+                reference_id: camp.id,
+                title: camp.name,
+                description: `Instantly campaign (${statusLabel}). ${analytics ? `${analytics.leads_count ?? 0} leads, ${analytics.emails_sent_count ?? 0} sent.` : "No analytics yet."} ${sequenceInfo}`,
+                submitted_by: "instantly_sync",
+                submitted_at: camp.timestamp_created ?? camp.created_at ?? new Date().toISOString(),
+                status: "pending",
+                reviewed_at: null,
+                reviewer_notes: null,
+                sequence_detail: stepCount ? {
+                  sequence_type: "cold_instantly",
+                  target_segments: [],
+                  target_states: [],
+                  estimated_contacts: analytics?.leads_count ?? 0,
+                  send_from_domain: camp.email_list?.[0] ?? "instantly",
+                  steps: (camp.sequences ?? []).map((seq) => ({
+                    type: "email",
+                    subject: seq.variants?.[0]?.subject ?? "",
+                    body: seq.variants?.[0]?.body ?? "",
+                    wait_days: seq.delay ?? 0,
+                    variants: seq.variants ?? [],
+                  })),
+                } : null,
+              });
+              stats.approvals.created++;
+            } catch (aprErr) {
+              errors.push(`Approval create failed for "${camp.name}": ${aprErr instanceof Error ? aprErr.message : String(aprErr)}`);
+            }
           }
         } catch (err) {
           errors.push(`Campaign upsert failed for "${camp.name}": ${err instanceof Error ? err.message : String(err)}`);
@@ -276,6 +334,7 @@ export async function POST() {
     campaigns: stats.campaigns,
     contacts: stats.contacts,
     send_logs: stats.send_logs,
+    approvals: stats.approvals,
     errors,
   };
 

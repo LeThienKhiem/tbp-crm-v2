@@ -135,6 +135,67 @@ function SequenceApprovalDetail({ item }: { item: ApprovalItem }) {
   );
 }
 
+/* ── Campaign Detail Panel ─────────────────────────────────────── */
+function CampaignApprovalDetail({ item }: { item: ApprovalItem }) {
+  const [expanded, setExpanded] = useState(false);
+  const detail = item.sequence_detail;
+
+  return (
+    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-700 ring-1 ring-inset ring-orange-300">
+          <Megaphone size={10} /> Instantly Campaign
+        </span>
+        <span className="text-xs text-slate-500">
+          Synced from Instantly.ai
+        </span>
+      </div>
+
+      <p className="text-xs text-slate-600">{item.description}</p>
+
+      {detail && (detail as { steps?: unknown[] }).steps && (
+        <>
+          <button onClick={() => setExpanded(!expanded)}
+            className="mt-2 flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">
+            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            {expanded ? "Hide" : "Preview"} {((detail as { steps?: unknown[] }).steps ?? []).length} email steps
+          </button>
+
+          {expanded && (
+            <div className="mt-2 space-y-2">
+              {((detail as { steps?: { type: string; subject?: string; body?: string; wait_days?: number; variants?: { subject: string; body: string }[] }[] }).steps ?? []).map((step, idx) => (
+                <div key={idx} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                  <div className="flex items-start gap-2">
+                    {step.wait_days ? (
+                      <Clock size={14} className="mt-0.5 shrink-0 text-amber-500" />
+                    ) : (
+                      <Mail size={14} className="mt-0.5 shrink-0 text-blue-500" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      {step.wait_days ? (
+                        <p className="text-xs text-slate-600">Wait {step.wait_days} day(s) before next step</p>
+                      ) : null}
+                      {step.subject && (
+                        <p className="truncate text-xs font-medium text-slate-800">Subject: {step.subject}</p>
+                      )}
+                      {step.body && (
+                        <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{step.body.replace(/<[^>]*>/g, "").slice(0, 200)}</p>
+                      )}
+                      {step.variants && step.variants.length > 1 && (
+                        <p className="mt-1 text-xs text-purple-600">{step.variants.length} A/B variants</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 /* ── Main component ────────────────────────────────────────────── */
 export default function ApprovalCenter() {
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
@@ -216,6 +277,13 @@ export default function ApprovalCenter() {
         } catch {
           // Non-critical: sequence status update failed
         }
+      }
+
+      // 3. If it's a campaign approval from Instantly, log the decision
+      // (Campaign stays as-is on Instantly — approval is for internal tracking)
+      if (reviewItem.item.type === "campaign" && reviewItem.item.reference_id) {
+        // No action needed on Instantly side — approval is for internal CRM tracking
+        // The campaign status on Instantly is managed directly in Instantly.ai
       }
 
       setApprovals((prev) => prev.filter((a) => a.id !== reviewItem.item.id));
@@ -315,9 +383,12 @@ export default function ApprovalCenter() {
                   </div>
                 </div>
 
-                {/* Rich sequence detail */}
+                {/* Rich detail panels */}
                 {item.type === "sequence" && item.sequence_detail && (
                   <SequenceApprovalDetail item={item} />
+                )}
+                {item.type === "campaign" && (
+                  <CampaignApprovalDetail item={item} />
                 )}
               </div>
             );
@@ -338,7 +409,7 @@ export default function ApprovalCenter() {
                 : "This item will be rejected. Please provide a reason below."}
             </p>
 
-            {/* Show sequence detail in review modal too */}
+            {/* Show detail in review modal */}
             {reviewItem.item.type === "sequence" && reviewItem.item.sequence_detail && (
               <div className="mt-3">
                 <SequenceApprovalDetail item={reviewItem.item} />
@@ -346,6 +417,11 @@ export default function ApprovalCenter() {
                   className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-medium text-blue-700 hover:bg-blue-100">
                   <Eye className="h-4 w-4" /> Preview Full Emails
                 </button>
+              </div>
+            )}
+            {reviewItem.item.type === "campaign" && (
+              <div className="mt-3">
+                <CampaignApprovalDetail item={reviewItem.item} />
               </div>
             )}
 

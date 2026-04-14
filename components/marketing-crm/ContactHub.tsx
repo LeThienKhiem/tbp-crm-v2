@@ -28,6 +28,7 @@ import {
   UserPlus,
   UserMinus,
   ChevronRight,
+  Zap,
 } from "lucide-react";
 import type { Contact, ContactStatus } from "@/types/marketing";
 import ActivityTimeline from "./ActivityTimeline";
@@ -257,6 +258,15 @@ export default function ContactHub() {
   const [revealingId, setRevealingId] = useState<string | null>(null);
   const [savingToAirtable, setSavingToAirtable] = useState(false);
 
+  // ── Push to Instantly state ────────────────────────────────────
+  const [showPushModal, setShowPushModal] = useState(false);
+  const [pushMode, setPushMode] = useState<"selected" | "group">("selected");
+  const [pushGroupName, setPushGroupName] = useState("");
+  const [pushCampaigns, setPushCampaigns] = useState<{ id: string; name: string; status: string }[]>([]);
+  const [pushCampaignId, setPushCampaignId] = useState("");
+  const [pushLoading, setPushLoading] = useState(false);
+  const [pushFetchingCampaigns, setPushFetchingCampaigns] = useState(false);
+
   // ── Fetch contacts ─────────────────────────────────────────────
   const fetchContacts = useCallback(async () => {
     try {
@@ -284,6 +294,65 @@ export default function ContactHub() {
   }, []);
 
   useEffect(() => { fetchContacts(); fetchGroups(); }, [fetchContacts, fetchGroups]);
+
+  // ── Push to Instantly ─────────────────────────────────────────
+  async function openPushModal() {
+    setShowPushModal(true);
+    setPushMode(selectedIds.size > 0 ? "selected" : "group");
+    setPushCampaignId("");
+    setPushGroupName("");
+    // Fetch campaigns from Instantly
+    setPushFetchingCampaigns(true);
+    try {
+      const res = await fetch("/api/marketing-crm/campaigns");
+      if (res.ok) {
+        const json = await res.json();
+        setPushCampaigns((json.data ?? []).map((c: { id: string; name: string; status_label?: string }) => ({
+          id: c.id,
+          name: c.name,
+          status: c.status_label ?? "",
+        })));
+      }
+    } catch { /* silent */ }
+    setPushFetchingCampaigns(false);
+  }
+
+  async function handlePushToInstantly() {
+    if (!pushCampaignId) {
+      setToast({ message: "Please select a campaign", type: "error" });
+      return;
+    }
+    setPushLoading(true);
+    try {
+      const body: Record<string, unknown> = { campaign_id: pushCampaignId };
+      if (pushMode === "group" && pushGroupName) {
+        body.group_name = pushGroupName;
+      } else {
+        body.contact_ids = Array.from(selectedIds);
+      }
+      const res = await fetch("/api/marketing-crm/contacts/push-to-instantly", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setToast({ message: json.error ?? "Push failed", type: "error" });
+        return;
+      }
+      const d = json.data;
+      setToast({
+        message: `Pushed ${d.leads_uploaded} leads to Instantly (${d.duplicated_leads} duplicates skipped)`,
+        type: "success",
+      });
+      setShowPushModal(false);
+      setSelectedIds(new Set());
+    } catch (err) {
+      setToast({ message: err instanceof Error ? err.message : "Push failed", type: "error" });
+    } finally {
+      setPushLoading(false);
+    }
+  }
 
   // ── Group CRUD ────────────────────────────────────────────────
   async function handleCreateGroup() {
@@ -734,6 +803,12 @@ export default function ContactHub() {
         <button onClick={() => setShowImportModal(true)}
           className="flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-50">
           <Upload className="h-4 w-4" /> Import CSV
+        </button>
+
+        <button onClick={openPushModal}
+          className="flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-700">
+          <Zap className="h-4 w-4" />
+          Push to Instantly{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}
         </button>
 
         <button onClick={handleSubmitApproval} disabled={selectedIds.size === 0}
@@ -1482,6 +1557,146 @@ export default function ContactHub() {
                 </div>
                 <ActivityTimeline contactId={detailContact.id} contactEmail={detailContact.email} />
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Push to Instantly Modal ──────────────────────────────── */}
+      {showPushModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Zap className="h-5 w-5 text-orange-600" />
+                <h3 className="text-lg font-semibold text-slate-900">Push to Instantly</h3>
+              </div>
+              <button onClick={() => setShowPushModal(false)} className="rounded-lg p-1 hover:bg-slate-100">
+                <X className="h-5 w-5 text-slate-400" />
+              </button>
+            </div>
+
+            {/* Mode toggle */}
+            <div className="mb-4">
+              <label className="mb-2 block text-sm font-medium text-slate-700">Push contacts from:</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPushMode("selected")}
+                  disabled={selectedIds.size === 0}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    pushMode === "selected"
+                      ? "bg-orange-50 text-orange-700 ring-1 ring-orange-300"
+                      : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                  } ${selectedIds.size === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                  <Users className="mb-1 mx-auto h-4 w-4" />
+                  Selected ({selectedIds.size})
+                </button>
+                <button
+                  onClick={() => setPushMode("group")}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    pushMode === "group"
+                      ? "bg-orange-50 text-orange-700 ring-1 ring-orange-300"
+                      : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <FolderOpen className="mb-1 mx-auto h-4 w-4" />
+                  By Group
+                </button>
+              </div>
+            </div>
+
+            {/* Group selector */}
+            {pushMode === "group" && (
+              <div className="mb-4">
+                <label className="mb-1 block text-sm font-medium text-slate-700">Select group:</label>
+                <select
+                  value={pushGroupName}
+                  onChange={(e) => setPushGroupName(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="">— Choose a group —</option>
+                  {groups.filter((g) => !g.name.startsWith("__test_")).map((g) => {
+                    const memberCount = contacts.filter((c) =>
+                      c.tags.some((t) => t.toLowerCase() === g.name.toLowerCase())
+                    ).length;
+                    return (
+                      <option key={g.id} value={g.name}>
+                        {g.name} ({memberCount} contacts)
+                      </option>
+                    );
+                  })}
+                </select>
+                {pushGroupName && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    {contacts.filter((c) =>
+                      c.tags.some((t) => t.toLowerCase() === pushGroupName.toLowerCase())
+                    ).length} contacts will be pushed
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Selected contacts preview */}
+            {pushMode === "selected" && selectedIds.size > 0 && (
+              <div className="mb-4">
+                <p className="mb-1 text-sm font-medium text-slate-700">Selected contacts:</p>
+                <div className="max-h-32 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2">
+                  {contacts.filter((c) => selectedIds.has(c.id)).slice(0, 10).map((c) => (
+                    <p key={c.id} className="text-xs text-slate-600">
+                      {c.first_name} {c.last_name} — <span className="text-slate-400">{c.email}</span>
+                    </p>
+                  ))}
+                  {selectedIds.size > 10 && (
+                    <p className="text-xs text-slate-400">...and {selectedIds.size - 10} more</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Campaign selector */}
+            <div className="mb-5">
+              <label className="mb-1 block text-sm font-medium text-slate-700">Push to campaign:</label>
+              {pushFetchingCampaigns ? (
+                <div className="flex items-center gap-2 py-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                  <span className="text-sm text-slate-400">Loading campaigns...</span>
+                </div>
+              ) : pushCampaigns.length === 0 ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                  <AlertCircle className="mb-0.5 inline h-3.5 w-3.5" /> No campaigns found on Instantly.
+                  Create a campaign on Instantly.ai first.
+                </div>
+              ) : (
+                <select
+                  value={pushCampaignId}
+                  onChange={(e) => setPushCampaignId(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="">— Choose a campaign —</option>
+                  {pushCampaigns.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.status ? `(${c.status})` : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-3">
+              <button onClick={() => setShowPushModal(false)} disabled={pushLoading}
+                className="rounded-lg px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100">
+                Cancel
+              </button>
+              <button
+                onClick={handlePushToInstantly}
+                disabled={pushLoading || !pushCampaignId || (pushMode === "selected" && selectedIds.size === 0) || (pushMode === "group" && !pushGroupName)}
+                className="inline-flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {pushLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                {pushLoading ? "Pushing..." : "Push to Instantly"}
+              </button>
             </div>
           </div>
         </div>

@@ -13,6 +13,7 @@ import {
   Users,
   Mail,
   BarChart3,
+  ClipboardCheck,
 } from "lucide-react";
 
 // ── Types ───────────────────────────────────────────────────────
@@ -21,6 +22,7 @@ interface SyncResult {
   campaigns: { created: number; updated: number; total: number };
   contacts: { created: number; skipped: number; total: number };
   send_logs: { created: number; total: number };
+  approvals?: { created: number; skipped: number };
   errors: string[];
 }
 
@@ -170,7 +172,7 @@ export default function InstantlySyncPanel() {
       ) : (
         <>
           {/* ── Stats row ──────────────────────────────────────────── */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
             {/* Last Synced */}
             <div className="rounded-lg bg-slate-50 px-3 py-2.5">
               <div className="flex items-center gap-1.5 mb-1">
@@ -238,6 +240,24 @@ export default function InstantlySyncPanel() {
                 {(syncResult?.send_logs.created ?? 0) > 0 && (
                   <span className="ml-1 text-xs font-normal text-green-600">
                     +{syncResult!.send_logs.created} new
+                  </span>
+                )}
+              </p>
+            </div>
+
+            {/* Approvals */}
+            <div className="rounded-lg bg-slate-50 px-3 py-2.5">
+              <div className="flex items-center gap-1.5 mb-1">
+                <ClipboardCheck className="h-3.5 w-3.5 text-orange-400" />
+                <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                  Approvals
+                </span>
+              </div>
+              <p className="text-sm font-semibold text-slate-700">
+                {(syncResult?.approvals?.created ?? 0) + (syncResult?.approvals?.skipped ?? 0)}
+                {(syncResult?.approvals?.created ?? 0) > 0 && (
+                  <span className="ml-1 text-xs font-normal text-green-600">
+                    +{syncResult!.approvals!.created} pending
                   </span>
                 )}
               </p>
