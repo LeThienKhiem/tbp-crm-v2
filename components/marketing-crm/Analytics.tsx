@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Send,
   Eye,
@@ -201,6 +201,15 @@ export default function Analytics() {
   const [variantData, setVariantData] = useState<VariantData[]>([]);
   const [variantLoading, setVariantLoading] = useState(true);
   const [variantIsDemo, setVariantIsDemo] = useState(false);
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsDark(document.documentElement.classList.contains("dark"));
+    check();
+    const obs = new MutationObserver(check);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => obs.disconnect();
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -224,6 +233,19 @@ export default function Analytics() {
       })
       .finally(() => setVariantLoading(false));
   }, []);
+
+  // Chart dark mode theme (must be before any early returns)
+  const chartTheme = useMemo(() => ({
+    axis: { fill: isDark ? "#94a3b8" : "#64748b", stroke: isDark ? "#2a2f38" : "#e2e8f0" },
+    tooltip: {
+      borderRadius: "8px",
+      border: `1px solid ${isDark ? "#2a2f38" : "#e2e8f0"}`,
+      boxShadow: isDark ? "0 4px 12px rgba(0,0,0,0.4)" : "0 1px 3px rgba(0,0,0,0.1)",
+      backgroundColor: isDark ? "#1a1f28" : "#ffffff",
+      color: isDark ? "#e2e8f0" : "#1e293b",
+    },
+    cursor: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
+  }), [isDark]);
 
   // ── Loading state ──────────────────────────────────────────────
   if (loading) {
@@ -269,10 +291,10 @@ export default function Analytics() {
       {/* ── Header + time range selector ───────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-slate-800">
+          <h2 className="text-xl font-semibold text-slate-800 dark:text-white">
             Campaign Analytics
           </h2>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
             Performance overview across all outreach campaigns
           </p>
         </div>
@@ -284,7 +306,7 @@ export default function Analytics() {
               className={`px-3 py-1.5 text-sm font-medium transition-colors ${
                 timeRange === tr.value
                   ? "bg-blue-600 text-white"
-                  : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-300"
+                  : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-300 dark:bg-[#1a1f28] dark:text-slate-400 dark:border-[#2a2f38] dark:hover:bg-[#2a2f38]"
               }`}
             >
               {tr.label}
@@ -321,69 +343,32 @@ export default function Analytics() {
       </div>
 
       {/* ── Campaign comparison bar chart ──────────────────────── */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="text-base font-semibold text-slate-800 mb-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-[#2a2f38] dark:bg-[#1a1f28]">
+        <h3 className="text-base font-semibold text-slate-800 dark:text-white mb-4">
           Campaign Performance Comparison
         </h3>
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart
-            data={campaign_comparison}
-            margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
-          >
-            <XAxis
-              dataKey="name"
-              tick={{ fontSize: 12, fill: "#64748b" }}
-              axisLine={{ stroke: "#e2e8f0" }}
-              tickLine={false}
-            />
-            <YAxis
-              tick={{ fontSize: 12, fill: "#64748b" }}
-              axisLine={false}
-              tickLine={false}
-              tickFormatter={(v: number) => `${v}%`}
-            />
-            <Tooltip
-              formatter={(value) => [`${Number(value).toFixed(1)}%`]}
-              contentStyle={{
-                borderRadius: "8px",
-                border: "1px solid #e2e8f0",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-              }}
-            />
-            <Legend
-              wrapperStyle={{ fontSize: "13px", paddingTop: "8px" }}
-            />
-            <Bar
-              dataKey="open_rate"
-              name="Open Rate"
-              fill="#3b82f6"
-              radius={[4, 4, 0, 0]}
-            />
-            <Bar
-              dataKey="reply_rate"
-              name="Reply Rate"
-              fill="#22c55e"
-              radius={[4, 4, 0, 0]}
-            />
-            <Bar
-              dataKey="click_rate"
-              name="Click Rate"
-              fill="#a855f7"
-              radius={[4, 4, 0, 0]}
-            />
+          <BarChart data={campaign_comparison} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+            <XAxis dataKey="name" tick={{ fontSize: 12, fill: chartTheme.axis.fill }} axisLine={{ stroke: chartTheme.axis.stroke }} tickLine={false} />
+            <YAxis tick={{ fontSize: 12, fill: chartTheme.axis.fill }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v}%`} />
+            <Tooltip formatter={(value) => [`${Number(value).toFixed(1)}%`]} contentStyle={chartTheme.tooltip} cursor={{ fill: chartTheme.cursor }} />
+            <Legend wrapperStyle={{ fontSize: "13px", paddingTop: "8px" }} />
+            <Bar dataKey="open_rate" name="Open Rate" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="reply_rate" name="Reply Rate" fill="#22c55e" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="click_rate" name="Click Rate" fill="#a855f7" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
       {/* ── A/B Variant Performance ─────────────────────────────── */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-[#2a2f38] dark:bg-[#1a1f28]">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <div className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100">
-              <Trophy className="h-4 w-4 text-indigo-600" />
+            <div className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-500/20">
+              <Trophy className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-slate-800">
+              <h3 className="text-base font-semibold text-slate-800 dark:text-white">
                 A/B Test Results
               </h3>
               {variantIsDemo && !variantLoading && (
@@ -417,26 +402,9 @@ export default function Analytics() {
                 }))}
                 margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
               >
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 12, fill: "#64748b" }}
-                  axisLine={{ stroke: "#e2e8f0" }}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 12, fill: "#64748b" }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v: number) => `${v}%`}
-                />
-                <Tooltip
-                  formatter={(value) => [`${Number(value).toFixed(1)}%`]}
-                  contentStyle={{
-                    borderRadius: "8px",
-                    border: "1px solid #e2e8f0",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                  }}
-                />
+                <XAxis dataKey="name" tick={{ fontSize: 12, fill: chartTheme.axis.fill }} axisLine={{ stroke: chartTheme.axis.stroke }} tickLine={false} />
+                <YAxis tick={{ fontSize: 12, fill: chartTheme.axis.fill }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v}%`} />
+                <Tooltip formatter={(value) => [`${Number(value).toFixed(1)}%`]} contentStyle={chartTheme.tooltip} cursor={{ fill: chartTheme.cursor }} />
                 <Legend wrapperStyle={{ fontSize: "13px", paddingTop: "8px" }} />
                 <Bar dataKey="Open Rate" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="Click Rate" fill="#a855f7" radius={[4, 4, 0, 0]} />
@@ -448,7 +416,7 @@ export default function Analytics() {
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-[#141720] dark:text-slate-400">
                     <th className="px-4 py-3 rounded-tl-lg">Variant</th>
                     <th className="px-4 py-3 text-right">Sent</th>
                     <th className="px-4 py-3">Open Rate</th>
@@ -458,7 +426,7 @@ export default function Analytics() {
                     <th className="px-4 py-3 rounded-tr-lg text-center">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-[#2a2f38]">
                   {variantData.map((v) => {
                     const style = getVariantStyle(v.label);
                     return (
@@ -466,65 +434,65 @@ export default function Analytics() {
                         key={v.label}
                         className={`transition-colors ${
                           v.is_winner
-                            ? "bg-green-50 ring-1 ring-inset ring-green-500/20"
-                            : "hover:bg-slate-50"
+                            ? "bg-green-50/60 ring-1 ring-inset ring-green-500/20 dark:bg-green-500/5 dark:ring-green-500/10"
+                            : "hover:bg-slate-50 dark:hover:bg-[#141720]"
                         }`}
                       >
                         <td className="px-4 py-3">
                           <span
-                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${style.bg} ${style.text}`}
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${style.bg} ${style.text} dark:bg-opacity-20`}
                           >
                             {v.label}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-600 text-right">
+                        <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300 text-right">
                           {fmt(v.sent)}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="h-2 w-20 rounded-full bg-blue-100 overflow-hidden">
+                            <div className="h-2 w-20 rounded-full bg-blue-100 dark:bg-blue-500/15 overflow-hidden">
                               <div
                                 className="h-2 rounded-full bg-blue-500 transition-all duration-300"
                                 style={{ width: `${Math.min(v.open_rate, 100)}%` }}
                               />
                             </div>
-                            <span className="text-sm text-slate-600 min-w-[3rem] text-right">
+                            <span className="text-sm text-slate-600 dark:text-slate-300 min-w-[3rem] text-right">
                               {pct(v.open_rate)}
                             </span>
                           </div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="h-2 w-20 rounded-full bg-purple-100 overflow-hidden">
+                            <div className="h-2 w-20 rounded-full bg-purple-100 dark:bg-purple-500/15 overflow-hidden">
                               <div
                                 className="h-2 rounded-full bg-purple-500 transition-all duration-300"
                                 style={{ width: `${Math.min(v.click_rate * 2, 100)}%` }}
                               />
                             </div>
-                            <span className="text-sm text-slate-600 min-w-[3rem] text-right">
+                            <span className="text-sm text-slate-600 dark:text-slate-300 min-w-[3rem] text-right">
                               {pct(v.click_rate)}
                             </span>
                           </div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="h-2 w-20 rounded-full bg-green-100 overflow-hidden">
+                            <div className="h-2 w-20 rounded-full bg-green-100 dark:bg-green-500/15 overflow-hidden">
                               <div
                                 className="h-2 rounded-full bg-green-500 transition-all duration-300"
                                 style={{ width: `${Math.min(v.reply_rate * 2, 100)}%` }}
                               />
                             </div>
-                            <span className="text-sm text-slate-600 min-w-[3rem] text-right">
+                            <span className="text-sm text-slate-600 dark:text-slate-300 min-w-[3rem] text-right">
                               {pct(v.reply_rate)}
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-600 text-right">
+                        <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300 text-right">
                           {fmt(v.bounces)}
                         </td>
                         <td className="px-4 py-3 text-center">
                           {v.is_winner ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-500/20 dark:text-green-400">
                               <Trophy className="h-3 w-3" />
                               Winner
                             </span>
@@ -545,8 +513,8 @@ export default function Analytics() {
       {/* ── Funnel + Cost analysis row ─────────────────────────── */}
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Funnel visualization */}
-        <div className="lg:w-[60%] rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h3 className="text-base font-semibold text-slate-800 mb-4">
+        <div className="lg:w-[60%] rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-[#2a2f38] dark:bg-[#1a1f28]">
+          <h3 className="text-base font-semibold text-slate-800 dark:text-white mb-4">
             Conversion Funnel
           </h3>
           <div className="space-y-3">
@@ -561,17 +529,17 @@ export default function Analytics() {
               return (
                 <div key={stage.stage}>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium text-slate-700">
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
                       {stage.stage}
                     </span>
-                    <span className="text-sm text-slate-500">
+                    <span className="text-sm text-slate-500 dark:text-slate-400">
                       {fmt(stage.count)}{" "}
-                      <span className="text-slate-400">
+                      <span className="text-slate-400 dark:text-slate-500">
                         ({pct(stage.conversion_rate)})
                       </span>
                     </span>
                   </div>
-                  <div className="w-full bg-slate-100 rounded-r-lg h-8 overflow-hidden">
+                  <div className="w-full bg-slate-100 dark:bg-[#141720] rounded-r-lg h-8 overflow-hidden">
                     <div
                       className={`h-8 rounded-r-lg ${colorClass} transition-all duration-500`}
                       style={{ width: `${Math.max(widthPct, 2)}%` }}
@@ -584,12 +552,12 @@ export default function Analytics() {
         </div>
 
         {/* Cost analysis card */}
-        <div className="lg:w-[40%] rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="lg:w-[40%] rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-[#2a2f38] dark:bg-[#1a1f28]">
           <div className="flex items-center gap-2 mb-4">
-            <div className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-amber-100">
-              <TrendingDown className="h-4 w-4 text-amber-600" />
+            <div className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-500/20">
+              <TrendingDown className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             </div>
-            <h3 className="text-base font-semibold text-slate-800">
+            <h3 className="text-base font-semibold text-slate-800 dark:text-white">
               Cost Analysis
             </h3>
           </div>
@@ -602,12 +570,12 @@ export default function Analytics() {
             ].map((row) => (
               <div
                 key={row.label}
-                className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3"
+                className="flex items-center justify-between rounded-lg bg-slate-50 dark:bg-[#141720] px-4 py-3"
               >
-                <span className="text-sm font-medium text-slate-600">
+                <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
                   {row.label}
                 </span>
-                <span className="text-lg font-semibold text-slate-800">
+                <span className="text-lg font-semibold text-slate-800 dark:text-white">
                   {row.value}
                 </span>
               </div>
@@ -617,14 +585,14 @@ export default function Analytics() {
       </div>
 
       {/* ── State breakdown table ──────────────────────────────── */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="text-base font-semibold text-slate-800 mb-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-[#2a2f38] dark:bg-[#1a1f28]">
+        <h3 className="text-base font-semibold text-slate-800 dark:text-white mb-4">
           Performance by State
         </h3>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <tr className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-[#141720] dark:text-slate-400">
                 <th className="px-4 py-3 rounded-tl-lg">State</th>
                 <th className="px-4 py-3 text-right">Contacts</th>
                 <th className="px-4 py-3 text-right">Replies</th>
@@ -632,7 +600,7 @@ export default function Analytics() {
                 <th className="px-4 py-3 rounded-tr-lg">Reply Rate</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-[#2a2f38]">
               {sortedStates.map((row) => {
                 const replyRate =
                   row.contacts > 0
@@ -641,23 +609,23 @@ export default function Analytics() {
                 return (
                   <tr
                     key={row.state}
-                    className="hover:bg-slate-50 transition-colors"
+                    className="hover:bg-slate-50 dark:hover:bg-[#141720] transition-colors"
                   >
-                    <td className="px-4 py-3 text-sm font-medium text-slate-800">
+                    <td className="px-4 py-3 text-sm font-medium text-slate-800 dark:text-slate-200">
                       {row.state}
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-600 text-right">
+                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300 text-right">
                       {fmt(row.contacts)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-600 text-right">
+                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300 text-right">
                       {fmt(row.replies)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-600 text-right">
+                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300 text-right">
                       {fmt(row.deals)}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <div className="h-2 w-20 rounded-full bg-slate-100 overflow-hidden">
+                        <div className="h-2 w-20 rounded-full bg-slate-100 dark:bg-blue-500/15 overflow-hidden">
                           <div
                             className="h-2 rounded-full bg-blue-500 transition-all duration-300"
                             style={{
@@ -665,7 +633,7 @@ export default function Analytics() {
                             }}
                           />
                         </div>
-                        <span className="text-sm text-slate-600 min-w-[3rem] text-right">
+                        <span className="text-sm text-slate-600 dark:text-slate-300 min-w-[3rem] text-right">
                           {pct(replyRate)}
                         </span>
                       </div>
