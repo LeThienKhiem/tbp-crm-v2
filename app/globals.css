@@ -42,15 +42,21 @@ body {
 }
 
 .dark .border-slate-200 {
-  border-color: #2a2d32 !important;
+  border-top-color: #2a2d32 !important;
+  border-right-color: #2a2d32 !important;
+  border-bottom-color: #2a2d32 !important;
 }
 
 .dark .border-slate-100 {
-  border-color: #2a2d32 !important;
+  border-top-color: #2a2d32 !important;
+  border-right-color: #2a2d32 !important;
+  border-bottom-color: #2a2d32 !important;
 }
 
 .dark .border-slate-300 {
-  border-color: #3a3d42 !important;
+  border-top-color: #3a3d42 !important;
+  border-right-color: #3a3d42 !important;
+  border-bottom-color: #3a3d42 !important;
 }
 
 .dark .text-slate-900 {

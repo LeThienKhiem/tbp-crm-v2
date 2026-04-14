@@ -130,6 +130,7 @@ interface KpiCard {
   color: string;
   bg: string;
   accent: string;
+  hover: string;
   getValue: (s: AnalyticsData["summary"]) => string;
 }
 
@@ -138,48 +139,54 @@ const KPI_CARDS: KpiCard[] = [
     label: "TOTAL SENT",
     icon: Send,
     color: "text-slate-600 dark:text-slate-400",
-    bg: "bg-slate-100 dark:bg-slate-500/20",
+    bg: "bg-slate-100 dark:bg-slate-500/25",
     accent: "border-l-slate-400",
+    hover: "hover:bg-slate-50 dark:hover:bg-slate-500/10",
     getValue: (s) => fmt(s.total_sent),
   },
   {
     label: "OPEN RATE",
     icon: Eye,
     color: "text-emerald-600 dark:text-emerald-400",
-    bg: "bg-emerald-100 dark:bg-emerald-500/20",
+    bg: "bg-emerald-100 dark:bg-emerald-500/25",
     accent: "border-l-emerald-400",
+    hover: "hover:bg-emerald-50 dark:hover:bg-emerald-500/10",
     getValue: (s) => pct(s.open_rate),
   },
   {
     label: "REPLY RATE",
     icon: MessageSquare,
     color: "text-blue-600 dark:text-blue-400",
-    bg: "bg-blue-100 dark:bg-blue-500/20",
+    bg: "bg-blue-100 dark:bg-blue-500/25",
     accent: "border-l-blue-400",
+    hover: "hover:bg-blue-50 dark:hover:bg-blue-500/10",
     getValue: (s) => pct(s.reply_rate),
   },
   {
     label: "CLICK RATE",
     icon: MousePointerClick,
     color: "text-purple-600 dark:text-purple-400",
-    bg: "bg-purple-100 dark:bg-purple-500/20",
+    bg: "bg-purple-100 dark:bg-purple-500/25",
     accent: "border-l-purple-400",
+    hover: "hover:bg-purple-50 dark:hover:bg-purple-500/10",
     getValue: (s) => pct(s.click_rate),
   },
   {
     label: "COST PER LEAD",
     icon: DollarSign,
     color: "text-amber-600 dark:text-amber-400",
-    bg: "bg-amber-100 dark:bg-amber-500/20",
+    bg: "bg-amber-100 dark:bg-amber-500/25",
     accent: "border-l-amber-400",
+    hover: "hover:bg-amber-50 dark:hover:bg-amber-500/10",
     getValue: (s) => usd(s.cost_per_lead),
   },
   {
     label: "TOTAL LEADS",
     icon: Target,
     color: "text-green-600 dark:text-green-400",
-    bg: "bg-green-100 dark:bg-green-500/20",
+    bg: "bg-green-100 dark:bg-green-500/25",
     accent: "border-l-green-400",
+    hover: "hover:bg-green-50 dark:hover:bg-green-500/10",
     getValue: (s) => fmt(s.total_leads_generated),
   },
 ];
@@ -293,17 +300,19 @@ export default function Analytics() {
           return (
             <div
               key={card.label}
-              className={`rounded-xl border-l-4 ${card.accent} border border-slate-200 bg-white p-4 shadow-sm dark:border-[#2a2d32] dark:bg-[#22252a]`}
+              className={`rounded-xl border-l-4 ${card.accent} border border-slate-200 bg-white p-5 shadow-sm transition-colors duration-200 ${card.hover} dark:border-[#2a2f38] dark:bg-[#1a1f28]`}
             >
-              <div
-                className={`inline-flex h-9 w-9 items-center justify-center rounded-full ${card.bg}`}
-              >
-                <Icon className={`h-4 w-4 ${card.color}`} />
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  {card.label}
+                </p>
+                <div
+                  className={`rounded-xl p-2 ${card.bg}`}
+                >
+                  <Icon className={`h-4 w-4 ${card.color}`} />
+                </div>
               </div>
-              <p className="mt-3 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                {card.label}
-              </p>
-              <p className="mt-1 text-2xl font-semibold text-slate-800 dark:text-white">
+              <p className="mt-2 text-2xl font-bold text-slate-800 dark:text-white">
                 {card.getValue(summary)}
               </p>
             </div>

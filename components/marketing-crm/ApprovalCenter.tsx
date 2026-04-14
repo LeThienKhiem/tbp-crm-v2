@@ -296,10 +296,10 @@ export default function ApprovalCenter() {
     }
   }, [reviewItem, reviewNotes]);
 
-  const statCards: { label: string; count: number; Icon: typeof Users; iconBg: string; accent: string }[] = [
-    { label: "Pending Contacts", count: counts.contact, Icon: Users, iconBg: "bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-400", accent: "border-l-violet-400" },
-    { label: "Pending Sequences", count: counts.sequence, Icon: Mail, iconBg: "bg-sky-100 text-sky-600 dark:bg-sky-500/20 dark:text-sky-400", accent: "border-l-sky-400" },
-    { label: "Pending Campaigns", count: counts.campaign, Icon: Megaphone, iconBg: "bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400", accent: "border-l-orange-400" },
+  const statCards: { label: string; count: number; Icon: typeof Users; iconBg: string; accent: string; hover: string }[] = [
+    { label: "Pending Contacts", count: counts.contact, Icon: Users, iconBg: "bg-violet-100 text-violet-600 dark:bg-violet-500/25 dark:text-violet-400", accent: "border-l-violet-400", hover: "hover:bg-violet-50 dark:hover:bg-violet-500/10" },
+    { label: "Pending Sequences", count: counts.sequence, Icon: Mail, iconBg: "bg-sky-100 text-sky-600 dark:bg-sky-500/25 dark:text-sky-400", accent: "border-l-sky-400", hover: "hover:bg-sky-50 dark:hover:bg-sky-500/10" },
+    { label: "Pending Campaigns", count: counts.campaign, Icon: Megaphone, iconBg: "bg-orange-100 text-orange-600 dark:bg-orange-500/25 dark:text-orange-400", accent: "border-l-orange-400", hover: "hover:bg-orange-50 dark:hover:bg-orange-500/10" },
   ];
 
   return (
@@ -307,14 +307,14 @@ export default function ApprovalCenter() {
       {/* Summary stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {statCards.map((s) => (
-          <div key={s.label} className={`rounded-xl border-l-4 ${s.accent} border border-slate-200 bg-white p-4 shadow-sm`}>
-            <div className="flex items-center gap-3">
-              <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${s.iconBg}`}>
-                <s.Icon className="h-5 w-5" />
-              </div>
+          <div key={s.label} className={`rounded-xl border-l-4 ${s.accent} border border-slate-200 bg-white p-5 shadow-sm transition-colors duration-200 ${s.hover} dark:border-[#2a2f38] dark:bg-[#1a1f28]`}>
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-2xl font-bold text-slate-900">{s.count}</p>
-                <p className="text-sm text-slate-500">{s.label}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{s.label}</p>
+                <p className="mt-1.5 text-2xl font-bold text-slate-900 dark:text-white">{s.count}</p>
+              </div>
+              <div className={`rounded-xl p-2.5 ${s.iconBg}`}>
+                <s.Icon className="h-5 w-5" />
               </div>
             </div>
           </div>

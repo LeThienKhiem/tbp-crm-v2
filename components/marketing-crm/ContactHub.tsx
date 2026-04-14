@@ -174,14 +174,16 @@ interface CsvImportResult { saved: number; skipped: number; errors: string[]; to
 type CsvImportStep = "upload" | "preview" | "importing" | "done";
 
 // ── Stats card ───────────────────────────────────────────────────
-function StatCard({ icon: Icon, label, value, color, accent }: { icon: React.ElementType; label: string; value: number; color: string; accent: string }) {
+function StatCard({ icon: Icon, label, value, color, accent, hover }: { icon: React.ElementType; label: string; value: number; color: string; accent: string; hover: string }) {
   return (
-    <div className={`rounded-xl border-l-4 ${accent} border border-slate-200 bg-white p-4 shadow-sm dark:border-[#2a2d32] dark:bg-[#22252a]`}>
-      <div className="flex items-center gap-3">
-        <div className={`rounded-lg p-2 ${color}`}><Icon className="h-5 w-5" /></div>
+    <div className={`rounded-xl border-l-4 ${accent} border border-slate-200 bg-white p-5 shadow-sm transition-colors duration-200 ${hover} dark:border-[#2a2f38] dark:bg-[#1a1f28]`}>
+      <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-          <p className="text-2xl font-semibold text-slate-900">{value}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
+          <p className="mt-1.5 text-2xl font-bold text-slate-900 dark:text-white">{value}</p>
+        </div>
+        <div className={`rounded-xl p-2.5 ${color}`}>
+          <Icon className="h-5 w-5" />
         </div>
       </div>
     </div>
@@ -734,10 +736,10 @@ export default function ContactHub() {
     <div className="space-y-6">
       {/* Stats row */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard icon={Users} label="Total Contacts" value={stats.total} color="bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-400" accent="border-l-violet-400" />
-        <StatCard icon={CheckCircle2} label="Approved" value={stats.approved} color="bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400" accent="border-l-emerald-400" />
-        <StatCard icon={Send} label="In Sequence" value={stats.inSequence} color="bg-sky-100 text-sky-600 dark:bg-sky-500/20 dark:text-sky-400" accent="border-l-sky-400" />
-        <StatCard icon={MessageSquare} label="Replied" value={stats.replied} color="bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400" accent="border-l-orange-400" />
+        <StatCard icon={Users} label="Total Contacts" value={stats.total} color="bg-violet-100 text-violet-600 dark:bg-violet-500/25 dark:text-violet-400" accent="border-l-violet-400" hover="hover:bg-violet-50 dark:hover:bg-violet-500/10" />
+        <StatCard icon={CheckCircle2} label="Approved" value={stats.approved} color="bg-emerald-100 text-emerald-600 dark:bg-emerald-500/25 dark:text-emerald-400" accent="border-l-emerald-400" hover="hover:bg-emerald-50 dark:hover:bg-emerald-500/10" />
+        <StatCard icon={Send} label="In Sequence" value={stats.inSequence} color="bg-sky-100 text-sky-600 dark:bg-sky-500/25 dark:text-sky-400" accent="border-l-sky-400" hover="hover:bg-sky-50 dark:hover:bg-sky-500/10" />
+        <StatCard icon={MessageSquare} label="Replied" value={stats.replied} color="bg-orange-100 text-orange-600 dark:bg-orange-500/25 dark:text-orange-400" accent="border-l-orange-400" hover="hover:bg-orange-50 dark:hover:bg-orange-500/10" />
       </div>
 
       {/* Data source indicator */}

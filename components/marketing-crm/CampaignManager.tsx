@@ -638,17 +638,19 @@ export default function CampaignManager() {
       {campaigns.length > 0 && (
         <div className="grid grid-cols-4 gap-4">
           {[
-            { label: "Total Leads", value: totals.leads, icon: <Users className="h-4 w-4" />, iconBg: "bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-400", accent: "border-l-violet-400" },
-            { label: "Emails Sent", value: totals.sent, icon: <Send className="h-4 w-4" />, iconBg: "bg-sky-100 text-sky-600 dark:bg-sky-500/20 dark:text-sky-400", accent: "border-l-sky-400" },
-            { label: "Total Opens", value: totals.opens, icon: <Eye className="h-4 w-4" />, iconBg: "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400", accent: "border-l-emerald-400" },
-            { label: "Total Replies", value: totals.replies, icon: <MessageSquare className="h-4 w-4" />, iconBg: "bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400", accent: "border-l-orange-400" },
+            { label: "Total Leads", value: totals.leads, icon: <Users className="h-5 w-5" />, iconBg: "bg-violet-100 text-violet-600 dark:bg-violet-500/25 dark:text-violet-400", accent: "border-l-violet-400", hover: "hover:bg-violet-50 dark:hover:bg-violet-500/10" },
+            { label: "Emails Sent", value: totals.sent, icon: <Send className="h-5 w-5" />, iconBg: "bg-sky-100 text-sky-600 dark:bg-sky-500/25 dark:text-sky-400", accent: "border-l-sky-400", hover: "hover:bg-sky-50 dark:hover:bg-sky-500/10" },
+            { label: "Total Opens", value: totals.opens, icon: <Eye className="h-5 w-5" />, iconBg: "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/25 dark:text-emerald-400", accent: "border-l-emerald-400", hover: "hover:bg-emerald-50 dark:hover:bg-emerald-500/10" },
+            { label: "Total Replies", value: totals.replies, icon: <MessageSquare className="h-5 w-5" />, iconBg: "bg-orange-100 text-orange-600 dark:bg-orange-500/25 dark:text-orange-400", accent: "border-l-orange-400", hover: "hover:bg-orange-50 dark:hover:bg-orange-500/10" },
           ].map((s) => (
-            <div key={s.label} className={`rounded-xl border-l-4 ${s.accent} border border-slate-200 bg-white p-4 shadow-sm dark:border-[#2a2d32] dark:bg-[#22252a]`}>
-              <div className={`mb-1 inline-flex items-center gap-2 rounded-md px-2 py-1 text-xs ${s.iconBg}`}>
-                {s.icon}
-                <span className="font-medium">{s.label}</span>
+            <div key={s.label} className={`rounded-xl border-l-4 ${s.accent} border border-slate-200 bg-white p-5 shadow-sm transition-colors duration-200 ${s.hover} dark:border-[#2a2f38] dark:bg-[#1a1f28]`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{s.label}</p>
+                  <p className="mt-1.5 text-xl font-bold text-slate-900 dark:text-white">{fmtNum(s.value)}</p>
+                </div>
+                <div className={`rounded-xl p-2.5 ${s.iconBg}`}>{s.icon}</div>
               </div>
-              <p className="mt-1 text-xl font-bold text-slate-900 dark:text-white">{fmtNum(s.value)}</p>
             </div>
           ))}
         </div>

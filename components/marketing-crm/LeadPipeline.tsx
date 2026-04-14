@@ -24,12 +24,13 @@ const STAGES: {
   borderColor: string;
   headerBg: string;
   valueBg: string;
+  countBg: string;
 }[] = [
-  { id: "cold", label: "Cold", borderColor: "border-t-slate-400", headerBg: "bg-slate-50", valueBg: "text-slate-700" },
-  { id: "warm", label: "Warm", borderColor: "border-t-amber-400", headerBg: "bg-amber-50", valueBg: "text-amber-700" },
-  { id: "hot", label: "Hot", borderColor: "border-t-orange-400", headerBg: "bg-orange-50", valueBg: "text-orange-700" },
-  { id: "sql", label: "SQL", borderColor: "border-t-blue-400", headerBg: "bg-blue-50", valueBg: "text-blue-700" },
-  { id: "deal", label: "Deal", borderColor: "border-t-green-400", headerBg: "bg-green-50", valueBg: "text-green-700" },
+  { id: "cold", label: "Cold", borderColor: "border-t-slate-400", headerBg: "bg-slate-50 dark:bg-slate-500/10", valueBg: "text-slate-700 dark:text-slate-300", countBg: "bg-white/80 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300" },
+  { id: "warm", label: "Warm", borderColor: "border-t-amber-400", headerBg: "bg-amber-50 dark:bg-amber-500/10", valueBg: "text-amber-700 dark:text-amber-400", countBg: "bg-white/80 dark:bg-amber-700/30 text-amber-700 dark:text-amber-300" },
+  { id: "hot", label: "Hot", borderColor: "border-t-orange-400", headerBg: "bg-orange-50 dark:bg-orange-500/10", valueBg: "text-orange-700 dark:text-orange-400", countBg: "bg-white/80 dark:bg-orange-700/30 text-orange-700 dark:text-orange-300" },
+  { id: "sql", label: "SQL", borderColor: "border-t-blue-400", headerBg: "bg-blue-50 dark:bg-blue-500/10", valueBg: "text-blue-700 dark:text-blue-400", countBg: "bg-white/80 dark:bg-blue-700/30 text-blue-700 dark:text-blue-300" },
+  { id: "deal", label: "Deal", borderColor: "border-t-green-400", headerBg: "bg-green-50 dark:bg-green-500/10", valueBg: "text-green-700 dark:text-green-400", countBg: "bg-white/80 dark:bg-green-700/30 text-green-700 dark:text-green-300" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -209,34 +210,23 @@ export default function LeadPipeline() {
     <div className="space-y-6">
       {/* ---- Pipeline header ---- */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-xl font-semibold text-slate-900">Lead Pipeline</h2>
+        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Lead Pipeline</h2>
 
-        <div className="flex flex-wrap items-center gap-4">
-          {/* Total leads */}
-          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
-            <Users className="h-4 w-4 text-slate-500" />
-            <span className="text-sm text-slate-600">Total Leads</span>
-            <span className="text-sm font-semibold text-slate-900">
-              {totalLeads}
-            </span>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm dark:border-[#2a2f38] dark:bg-[#1a1f28]">
+            <Users className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+            <span className="text-sm text-slate-600 dark:text-slate-400">Total Leads</span>
+            <span className="text-sm font-bold text-slate-900 dark:text-white">{totalLeads}</span>
           </div>
-
-          {/* Total value */}
-          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
-            <DollarSign className="h-4 w-4 text-green-500" />
-            <span className="text-sm text-slate-600">Total Deal Value</span>
-            <span className="text-sm font-semibold text-slate-900">
-              {formatUsd(totalValue)}
-            </span>
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm dark:border-[#2a2f38] dark:bg-[#1a1f28]">
+            <DollarSign className="h-4 w-4 text-green-500 dark:text-green-400" />
+            <span className="text-sm text-slate-600 dark:text-slate-400">Total Deal Value</span>
+            <span className="text-sm font-bold text-slate-900 dark:text-white">{formatUsd(totalValue)}</span>
           </div>
-
-          {/* Avg deal */}
-          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
-            <TrendingUp className="h-4 w-4 text-blue-500" />
-            <span className="text-sm text-slate-600">Avg Deal Size</span>
-            <span className="text-sm font-semibold text-slate-900">
-              {formatUsd(Math.round(avgDeal))}
-            </span>
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm dark:border-[#2a2f38] dark:bg-[#1a1f28]">
+            <TrendingUp className="h-4 w-4 text-blue-500 dark:text-blue-400" />
+            <span className="text-sm text-slate-600 dark:text-slate-400">Avg Deal Size</span>
+            <span className="text-sm font-bold text-slate-900 dark:text-white">{formatUsd(Math.round(avgDeal))}</span>
           </div>
         </div>
       </div>
@@ -254,8 +244,8 @@ export default function LeadPipeline() {
           return (
             <div
               key={stage.id}
-              className={`flex w-72 min-w-[288px] flex-shrink-0 flex-col rounded-xl border border-slate-200 bg-white shadow-sm transition-all ${
-                isOver ? "ring-2 ring-blue-400 bg-blue-50/50" : ""
+              className={`flex w-72 min-w-[288px] flex-shrink-0 flex-col rounded-xl border border-slate-200 bg-slate-50/50 shadow-sm transition-all dark:border-[#2a2f38] dark:bg-[#141720] ${
+                isOver ? "ring-2 ring-blue-400 bg-blue-50/50 dark:bg-blue-500/5" : ""
               }`}
               onDragOver={(e) => handleDragOver(e, stage.id)}
               onDragLeave={handleDragLeave}
@@ -266,14 +256,14 @@ export default function LeadPipeline() {
                 className={`rounded-t-xl border-t-4 ${stage.borderColor} ${stage.headerBg} px-4 py-3`}
               >
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-800">
+                  <h3 className="text-sm font-semibold text-slate-800 dark:text-white">
                     {stage.label}
                   </h3>
-                  <span className="rounded-full bg-white/80 px-2 py-0.5 text-xs font-medium text-slate-600">
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${stage.countBg}`}>
                     {items.length}
                   </span>
                 </div>
-                <p className={`mt-1 text-xs font-medium ${stage.valueBg}`}>
+                <p className={`mt-1 text-sm font-semibold ${stage.valueBg}`}>
                   {formatUsd(stageValue)}
                 </p>
               </div>
@@ -281,7 +271,7 @@ export default function LeadPipeline() {
               {/* Cards container */}
               <div className="flex min-h-[200px] flex-col gap-2 p-3">
                 {items.length === 0 && (
-                  <p className="py-8 text-center text-xs text-slate-400">
+                  <p className="py-8 text-center text-xs text-slate-400 dark:text-slate-500">
                     No leads
                   </p>
                 )}
@@ -293,24 +283,24 @@ export default function LeadPipeline() {
                     onDragStart={(e) => handleDragStart(e, lead.id)}
                     onDragEnd={handleDragEnd}
                     onClick={() => openDetail(lead)}
-                    className={`group flex cursor-pointer gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition hover:shadow-md ${
+                    className={`group flex cursor-pointer gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition hover:shadow-md dark:border-[#2a2f38] dark:bg-[#1a1f28] dark:hover:bg-[#1e2330] ${
                       draggedLead === lead.id ? "opacity-50" : ""
                     }`}
                   >
                     {/* Drag handle */}
                     <div className="flex flex-shrink-0 items-start pt-0.5">
-                      <GripVertical className="h-4 w-4 cursor-grab text-slate-300 group-hover:text-slate-500" />
+                      <GripVertical className="h-4 w-4 cursor-grab text-slate-300 group-hover:text-slate-500 dark:text-slate-600 dark:group-hover:text-slate-400" />
                     </div>
 
                     {/* Card body */}
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-slate-900">
+                      <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
                         {lead.contact_name}
                       </p>
-                      <p className="truncate text-sm text-slate-600">
+                      <p className="truncate text-sm text-slate-600 dark:text-slate-400">
                         {lead.company}
                       </p>
-                      <p className="truncate text-xs text-slate-500">
+                      <p className="truncate text-xs text-slate-500 dark:text-slate-500">
                         {lead.title}
                       </p>
 
@@ -322,13 +312,13 @@ export default function LeadPipeline() {
                             {formatUsd(lead.deal_value)}
                           </span>
                         )}
-                        <span className="ml-auto text-xs text-slate-400">
+                        <span className="ml-auto text-xs text-slate-400 dark:text-slate-500">
                           {formatDate(lead.last_activity)}
                         </span>
                       </div>
 
                       {lead.state && (
-                        <span className="mt-1.5 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                        <span className="mt-1.5 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-700/50 dark:text-slate-400">
                           {lead.state}
                         </span>
                       )}
@@ -343,64 +333,49 @@ export default function LeadPipeline() {
 
       {/* ---- Lead detail modal ---- */}
       {selectedLead && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="relative w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
-            {/* Close button */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 dark:bg-black/60">
+          <div className="relative w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-[#2a2f38] dark:bg-[#1a1f28]">
             <button
               onClick={closeDetail}
-              className="absolute right-4 top-4 rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              className="absolute right-4 top-4 rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-[#2a2f38] dark:hover:text-slate-300"
             >
               <X className="h-5 w-5" />
             </button>
 
-            <h3 className="text-lg font-semibold text-slate-900">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
               {selectedLead.contact_name}
             </h3>
-            <p className="mt-0.5 text-sm text-slate-600">
+            <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">
               {selectedLead.company}
             </p>
 
-            {/* Contact info grid */}
             <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
               <div>
-                <span className="text-slate-500">Title</span>
-                <p className="font-medium text-slate-800">
-                  {selectedLead.title}
-                </p>
+                <span className="text-slate-500 dark:text-slate-500">Title</span>
+                <p className="font-medium text-slate-800 dark:text-slate-200">{selectedLead.title}</p>
               </div>
               <div>
-                <span className="text-slate-500">Email</span>
-                <p className="font-medium text-slate-800">
-                  {selectedLead.email}
-                </p>
+                <span className="text-slate-500 dark:text-slate-500">Email</span>
+                <p className="font-medium text-slate-800 dark:text-slate-200">{selectedLead.email}</p>
               </div>
               <div>
-                <span className="text-slate-500">State</span>
-                <p className="font-medium text-slate-800">
-                  {selectedLead.state ?? "N/A"}
-                </p>
+                <span className="text-slate-500 dark:text-slate-500">State</span>
+                <p className="font-medium text-slate-800 dark:text-slate-200">{selectedLead.state ?? "N/A"}</p>
               </div>
               <div>
-                <span className="text-slate-500">Source Campaign</span>
-                <p className="font-medium text-slate-800">
-                  {selectedLead.source_campaign ?? "N/A"}
-                </p>
+                <span className="text-slate-500 dark:text-slate-500">Source Campaign</span>
+                <p className="font-medium text-slate-800 dark:text-slate-200">{selectedLead.source_campaign ?? "N/A"}</p>
               </div>
               <div>
-                <span className="text-slate-500">Last Activity</span>
-                <p className="font-medium text-slate-800">
-                  {formatDate(selectedLead.last_activity)}
-                </p>
+                <span className="text-slate-500 dark:text-slate-500">Last Activity</span>
+                <p className="font-medium text-slate-800 dark:text-slate-200">{formatDate(selectedLead.last_activity)}</p>
               </div>
             </div>
 
-            {/* Notes */}
             <div className="mt-5">
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Notes
-              </label>
+              <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Notes</label>
               {selectedLead.notes && (
-                <div className="mb-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+                <div className="mb-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-700 dark:bg-[#141720] dark:text-slate-300">
                   {selectedLead.notes}
                 </div>
               )}
@@ -409,48 +384,39 @@ export default function LeadPipeline() {
                 onChange={(e) => setEditNotes(e.target.value)}
                 rows={3}
                 placeholder="Add or edit notes..."
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-[#2a2f38] dark:bg-[#141720] dark:text-white dark:placeholder-slate-500"
               />
             </div>
 
-            {/* Deal value */}
             <div className="mt-4">
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Deal Value ($)
-              </label>
+              <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Deal Value ($)</label>
               <input
                 type="number"
                 min={0}
                 value={editDealValue}
                 onChange={(e) => setEditDealValue(e.target.value)}
                 placeholder="0"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-[#2a2f38] dark:bg-[#141720] dark:text-white dark:placeholder-slate-500"
               />
             </div>
 
-            {/* Move to Stage */}
             <div className="mt-4">
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Move to Stage
-              </label>
+              <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Move to Stage</label>
               <select
                 value={editStage}
                 onChange={(e) => setEditStage(e.target.value as LeadStage)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-[#2a2f38] dark:bg-[#141720] dark:text-white"
               >
                 {STAGES.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
-                  </option>
+                  <option key={s.id} value={s.id}>{s.label}</option>
                 ))}
               </select>
             </div>
 
-            {/* Actions */}
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
                 onClick={closeDetail}
-                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-[#2a2f38] dark:text-slate-300 dark:hover:bg-[#2a2f38]"
               >
                 Close
               </button>
