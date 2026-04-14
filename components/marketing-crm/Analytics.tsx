@@ -137,48 +137,48 @@ const KPI_CARDS: KpiCard[] = [
   {
     label: "TOTAL SENT",
     icon: Send,
-    color: "text-slate-600",
-    bg: "bg-slate-100",
+    color: "text-slate-600 dark:text-slate-400",
+    bg: "bg-slate-100 dark:bg-slate-500/20",
     accent: "border-l-slate-400",
     getValue: (s) => fmt(s.total_sent),
   },
   {
     label: "OPEN RATE",
     icon: Eye,
-    color: "text-emerald-600",
-    bg: "bg-emerald-100",
+    color: "text-emerald-600 dark:text-emerald-400",
+    bg: "bg-emerald-100 dark:bg-emerald-500/20",
     accent: "border-l-emerald-400",
     getValue: (s) => pct(s.open_rate),
   },
   {
     label: "REPLY RATE",
     icon: MessageSquare,
-    color: "text-blue-600",
-    bg: "bg-blue-100",
+    color: "text-blue-600 dark:text-blue-400",
+    bg: "bg-blue-100 dark:bg-blue-500/20",
     accent: "border-l-blue-400",
     getValue: (s) => pct(s.reply_rate),
   },
   {
     label: "CLICK RATE",
     icon: MousePointerClick,
-    color: "text-purple-600",
-    bg: "bg-purple-100",
+    color: "text-purple-600 dark:text-purple-400",
+    bg: "bg-purple-100 dark:bg-purple-500/20",
     accent: "border-l-purple-400",
     getValue: (s) => pct(s.click_rate),
   },
   {
     label: "COST PER LEAD",
     icon: DollarSign,
-    color: "text-amber-600",
-    bg: "bg-amber-100",
+    color: "text-amber-600 dark:text-amber-400",
+    bg: "bg-amber-100 dark:bg-amber-500/20",
     accent: "border-l-amber-400",
     getValue: (s) => usd(s.cost_per_lead),
   },
   {
     label: "TOTAL LEADS",
     icon: Target,
-    color: "text-green-600",
-    bg: "bg-green-100",
+    color: "text-green-600 dark:text-green-400",
+    bg: "bg-green-100 dark:bg-green-500/20",
     accent: "border-l-green-400",
     getValue: (s) => fmt(s.total_leads_generated),
   },
@@ -293,17 +293,17 @@ export default function Analytics() {
           return (
             <div
               key={card.label}
-              className={`rounded-xl border-l-4 ${card.accent} border border-slate-200 bg-white p-4 shadow-sm`}
+              className={`rounded-xl border-l-4 ${card.accent} border border-slate-200 bg-white p-4 shadow-sm dark:border-[#2a2d32] dark:bg-[#22252a]`}
             >
               <div
                 className={`inline-flex h-9 w-9 items-center justify-center rounded-full ${card.bg}`}
               >
                 <Icon className={`h-4 w-4 ${card.color}`} />
               </div>
-              <p className="mt-3 text-xs font-medium uppercase tracking-wide text-slate-500">
+              <p className="mt-3 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 {card.label}
               </p>
-              <p className="mt-1 text-2xl font-semibold text-slate-800">
+              <p className="mt-1 text-2xl font-semibold text-slate-800 dark:text-white">
                 {card.getValue(summary)}
               </p>
             </div>

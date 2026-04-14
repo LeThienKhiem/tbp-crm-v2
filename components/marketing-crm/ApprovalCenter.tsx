@@ -297,9 +297,9 @@ export default function ApprovalCenter() {
   }, [reviewItem, reviewNotes]);
 
   const statCards: { label: string; count: number; Icon: typeof Users; iconBg: string; accent: string }[] = [
-    { label: "Pending Contacts", count: counts.contact, Icon: Users, iconBg: "bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400", accent: "border-l-violet-400" },
-    { label: "Pending Sequences", count: counts.sequence, Icon: Mail, iconBg: "bg-sky-100 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400", accent: "border-l-sky-400" },
-    { label: "Pending Campaigns", count: counts.campaign, Icon: Megaphone, iconBg: "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400", accent: "border-l-orange-400" },
+    { label: "Pending Contacts", count: counts.contact, Icon: Users, iconBg: "bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-400", accent: "border-l-violet-400" },
+    { label: "Pending Sequences", count: counts.sequence, Icon: Mail, iconBg: "bg-sky-100 text-sky-600 dark:bg-sky-500/20 dark:text-sky-400", accent: "border-l-sky-400" },
+    { label: "Pending Campaigns", count: counts.campaign, Icon: Megaphone, iconBg: "bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400", accent: "border-l-orange-400" },
   ];
 
   return (

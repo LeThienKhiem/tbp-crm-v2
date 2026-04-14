@@ -734,10 +734,10 @@ export default function ContactHub() {
     <div className="space-y-6">
       {/* Stats row */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard icon={Users} label="Total Contacts" value={stats.total} color="bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400" accent="border-l-violet-400" />
-        <StatCard icon={CheckCircle2} label="Approved" value={stats.approved} color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400" accent="border-l-emerald-400" />
-        <StatCard icon={Send} label="In Sequence" value={stats.inSequence} color="bg-sky-100 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400" accent="border-l-sky-400" />
-        <StatCard icon={MessageSquare} label="Replied" value={stats.replied} color="bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400" accent="border-l-orange-400" />
+        <StatCard icon={Users} label="Total Contacts" value={stats.total} color="bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-400" accent="border-l-violet-400" />
+        <StatCard icon={CheckCircle2} label="Approved" value={stats.approved} color="bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400" accent="border-l-emerald-400" />
+        <StatCard icon={Send} label="In Sequence" value={stats.inSequence} color="bg-sky-100 text-sky-600 dark:bg-sky-500/20 dark:text-sky-400" accent="border-l-sky-400" />
+        <StatCard icon={MessageSquare} label="Replied" value={stats.replied} color="bg-orange-100 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400" accent="border-l-orange-400" />
       </div>
 
       {/* Data source indicator */}
