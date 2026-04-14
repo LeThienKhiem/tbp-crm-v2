@@ -638,15 +638,15 @@ export default function CampaignManager() {
       {campaigns.length > 0 && (
         <div className="grid grid-cols-4 gap-4">
           {[
-            { label: "Total Leads", value: totals.leads, icon: <Users className="h-4 w-4 text-slate-400" /> },
-            { label: "Emails Sent", value: totals.sent, icon: <Send className="h-4 w-4 text-blue-400" /> },
-            { label: "Total Opens", value: totals.opens, icon: <Eye className="h-4 w-4 text-emerald-400" /> },
-            { label: "Total Replies", value: totals.replies, icon: <MessageSquare className="h-4 w-4 text-green-400" /> },
+            { label: "Total Leads", value: totals.leads, icon: <Users className="h-4 w-4" />, iconBg: "bg-violet-100 text-violet-600", accent: "border-l-violet-400" },
+            { label: "Emails Sent", value: totals.sent, icon: <Send className="h-4 w-4" />, iconBg: "bg-sky-100 text-sky-600", accent: "border-l-sky-400" },
+            { label: "Total Opens", value: totals.opens, icon: <Eye className="h-4 w-4" />, iconBg: "bg-emerald-100 text-emerald-600", accent: "border-l-emerald-400" },
+            { label: "Total Replies", value: totals.replies, icon: <MessageSquare className="h-4 w-4" />, iconBg: "bg-orange-100 text-orange-600", accent: "border-l-orange-400" },
           ].map((s) => (
-            <div key={s.label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center gap-2 text-xs text-slate-500">
+            <div key={s.label} className={`rounded-xl border-l-4 ${s.accent} border border-slate-200 bg-white p-4 shadow-sm`}>
+              <div className={`mb-1 inline-flex items-center gap-2 rounded-md px-2 py-1 text-xs ${s.iconBg}`}>
                 {s.icon}
-                <span>{s.label}</span>
+                <span className="font-medium">{s.label}</span>
               </div>
               <p className="mt-1 text-xl font-bold text-slate-900">{fmtNum(s.value)}</p>
             </div>

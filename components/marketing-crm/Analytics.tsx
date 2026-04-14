@@ -129,6 +129,7 @@ interface KpiCard {
   icon: React.ElementType;
   color: string;
   bg: string;
+  accent: string;
   getValue: (s: AnalyticsData["summary"]) => string;
 }
 
@@ -138,6 +139,7 @@ const KPI_CARDS: KpiCard[] = [
     icon: Send,
     color: "text-slate-600",
     bg: "bg-slate-100",
+    accent: "border-l-slate-400",
     getValue: (s) => fmt(s.total_sent),
   },
   {
@@ -145,6 +147,7 @@ const KPI_CARDS: KpiCard[] = [
     icon: Eye,
     color: "text-emerald-600",
     bg: "bg-emerald-100",
+    accent: "border-l-emerald-400",
     getValue: (s) => pct(s.open_rate),
   },
   {
@@ -152,6 +155,7 @@ const KPI_CARDS: KpiCard[] = [
     icon: MessageSquare,
     color: "text-blue-600",
     bg: "bg-blue-100",
+    accent: "border-l-blue-400",
     getValue: (s) => pct(s.reply_rate),
   },
   {
@@ -159,6 +163,7 @@ const KPI_CARDS: KpiCard[] = [
     icon: MousePointerClick,
     color: "text-purple-600",
     bg: "bg-purple-100",
+    accent: "border-l-purple-400",
     getValue: (s) => pct(s.click_rate),
   },
   {
@@ -166,6 +171,7 @@ const KPI_CARDS: KpiCard[] = [
     icon: DollarSign,
     color: "text-amber-600",
     bg: "bg-amber-100",
+    accent: "border-l-amber-400",
     getValue: (s) => usd(s.cost_per_lead),
   },
   {
@@ -173,6 +179,7 @@ const KPI_CARDS: KpiCard[] = [
     icon: Target,
     color: "text-green-600",
     bg: "bg-green-100",
+    accent: "border-l-green-400",
     getValue: (s) => fmt(s.total_leads_generated),
   },
 ];
@@ -286,7 +293,7 @@ export default function Analytics() {
           return (
             <div
               key={card.label}
-              className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+              className={`rounded-xl border-l-4 ${card.accent} border border-slate-200 bg-white p-4 shadow-sm`}
             >
               <div
                 className={`inline-flex h-9 w-9 items-center justify-center rounded-full ${card.bg}`}

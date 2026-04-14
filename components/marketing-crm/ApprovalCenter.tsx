@@ -296,10 +296,10 @@ export default function ApprovalCenter() {
     }
   }, [reviewItem, reviewNotes]);
 
-  const statCards: { label: string; count: number; Icon: typeof Users }[] = [
-    { label: "Pending Contacts", count: counts.contact, Icon: Users },
-    { label: "Pending Sequences", count: counts.sequence, Icon: Mail },
-    { label: "Pending Campaigns", count: counts.campaign, Icon: Megaphone },
+  const statCards: { label: string; count: number; Icon: typeof Users; iconBg: string; accent: string }[] = [
+    { label: "Pending Contacts", count: counts.contact, Icon: Users, iconBg: "bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400", accent: "border-l-violet-400" },
+    { label: "Pending Sequences", count: counts.sequence, Icon: Mail, iconBg: "bg-sky-100 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400", accent: "border-l-sky-400" },
+    { label: "Pending Campaigns", count: counts.campaign, Icon: Megaphone, iconBg: "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400", accent: "border-l-orange-400" },
   ];
 
   return (
@@ -307,10 +307,10 @@ export default function ApprovalCenter() {
       {/* Summary stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {statCards.map((s) => (
-          <div key={s.label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div key={s.label} className={`rounded-xl border-l-4 ${s.accent} border border-slate-200 bg-white p-4 shadow-sm`}>
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
-                <s.Icon className="h-5 w-5 text-blue-600" />
+              <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${s.iconBg}`}>
+                <s.Icon className="h-5 w-5" />
               </div>
               <div>
                 <p className="text-2xl font-bold text-slate-900">{s.count}</p>
